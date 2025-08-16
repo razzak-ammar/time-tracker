@@ -5,87 +5,72 @@ import {
   updateDoc,
   deleteDoc,
   getDocs,
-  getDoc,
   query,
   where,
-  orderBy,
   serverTimestamp,
   onSnapshot,
   Timestamp,
 } from "firebase/firestore";
 import { db } from "./firebase";
-import { Organization, TimeEntry, TimeEntryWithOrganization } from "@/types";
+import { Project, TimeEntry } from "@/types";
 
-// Organizations
-export const createOrganization = async (
-  organization: Omit<Organization, "id" | "createdAt" | "updatedAt">,
+// Projects
+export const createProject = async (
+  project: Omit<Project, "id" | "createdAt" | "updatedAt">,
 ) => {
-  const docRef = await addDoc(collection(db, "organizations"), {
-    ...organization,
+  const docRef = await addDoc(collection(db, "projects"), {
+    ...project,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
   return docRef.id;
 };
 
-export const updateOrganization = async (
-  id: string,
-  updates: Partial<Organization>,
-) => {
-  const docRef = doc(db, "organizations", id);
+export const updateProject = async (id: string, updates: Partial<Project>) => {
+  const docRef = doc(db, "projects", id);
   await updateDoc(docRef, {
     ...updates,
     updatedAt: serverTimestamp(),
   });
 };
 
-export const deleteOrganization = async (id: string) => {
-  const docRef = doc(db, "organizations", id);
+export const deleteProject = async (id: string) => {
+  const docRef = doc(db, "projects", id);
   await deleteDoc(docRef);
 };
 
-export const getOrganizations = async (
-  userId: string,
-): Promise<Organization[]> => {
-  const q = query(
-    collection(db, "organizations"),
-    where("userId", "==", userId),
-  );
+export const getProjects = async (userId: string): Promise<Project[]> => {
+  const q = query(collection(db, "projects"), where("userId", "==", userId));
   const querySnapshot = await getDocs(q);
-  const organizations = querySnapshot.docs.map((doc) => ({
+  const projects = querySnapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
     createdAt: doc.data().createdAt?.toDate() || new Date(),
     updatedAt: doc.data().updatedAt?.toDate() || new Date(),
-  })) as Organization[];
+  })) as Project[];
 
   // Sort by creation date in JavaScript instead of Firestore
-  return organizations.sort(
-    (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
-  );
+  return projects.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 };
 
-export const subscribeToOrganizations = (
+export const subscribeToProjects = (
   userId: string,
-  callback: (organizations: Organization[]) => void,
+  callback: (projects: Project[]) => void,
 ) => {
-  const q = query(
-    collection(db, "organizations"),
-    where("userId", "==", userId),
-  );
+  const q = query(collection(db, "projects"), where("userId", "==", userId));
   return onSnapshot(q, (querySnapshot) => {
-    const organizations = querySnapshot.docs.map((doc) => ({
+    const projects = querySnapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
       createdAt: doc.data().createdAt?.toDate() || new Date(),
       updatedAt: doc.data().updatedAt?.toDate() || new Date(),
-    })) as Organization[];
+    })) as Project[];
 
     // Sort by creation date in JavaScript instead of Firestore
-    const sortedOrganizations = organizations.sort(
+    const sortedProjects = projects.sort(
       (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
     );
-    callback(sortedOrganizations);
+    callback(sortedProjects);
   });
 };
 
@@ -108,6 +93,7 @@ export const updateTimeEntry = async (
   updates: Partial<TimeEntry>,
 ) => {
   const docRef = doc(db, "timeEntries", id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateData: any = {
     ...updates,
     updatedAt: serverTimestamp(),

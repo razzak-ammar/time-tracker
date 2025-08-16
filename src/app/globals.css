@@ -238,3 +238,15 @@
     z-index: 10;
   }
 }
+
+/* Hide default calendar icon in Chrome/Safari */
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  display: none;
+}
+
+/* Optional: remove spinners */
+input[type="datetime-local"]::-webkit-inner-spin-button,
+input[type="datetime-local"]::-webkit-clear-button {
+  display: none;
+}

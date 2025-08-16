@@ -3,7 +3,6 @@
 import { useTimeTracking } from "@/hooks/useTimeTracking";
 import { TimeEntryCard } from "@/components/time-entries/TimeEntryCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -15,7 +14,6 @@ import {
 import { Search, Filter, Calendar } from "lucide-react";
 import { useState, useMemo } from "react";
 import {
-  format,
   startOfDay,
   endOfDay,
   subDays,
@@ -26,27 +24,26 @@ import {
 } from "date-fns";
 
 export default function TimeEntriesPage() {
-  const { timeEntries, organizations } = useTimeTracking();
+  const { timeEntries, projects } = useTimeTracking();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedOrganization, setSelectedOrganization] =
-    useState<string>("all");
+  const [selectedProject, setSelectedProject] = useState<string>("all");
   const [timeFilter, setTimeFilter] = useState<string>("all");
 
-  // Create a map of organizations for quick lookup
-  const organizationMap = useMemo(() => {
+  // Create a map of projects for quick lookup
+  const projectMap = useMemo(() => {
     const map = new Map();
-    organizations.forEach((org) => map.set(org.id, org));
+    projects.forEach((org) => map.set(org.id, org));
     return map;
-  }, [organizations]);
+  }, [projects]);
 
-  // Filter time entries based on search, organization, and time filter
+  // Filter time entries based on search, project, and time filter
   const filteredEntries = useMemo(() => {
     let filtered = timeEntries;
 
     // Filter by search term
     if (searchTerm) {
       filtered = filtered.filter((entry) => {
-        const org = organizationMap.get(entry.organizationId);
+        const org = projectMap.get(entry.projectId);
         return (
           org?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           entry.description?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -54,10 +51,10 @@ export default function TimeEntriesPage() {
       });
     }
 
-    // Filter by organization
-    if (selectedOrganization !== "all") {
+    // Filter by project
+    if (selectedProject !== "all") {
       filtered = filtered.filter(
-        (entry) => entry.organizationId === selectedOrganization,
+        (entry) => entry.projectId === selectedProject,
       );
     }
 
@@ -97,13 +94,7 @@ export default function TimeEntriesPage() {
     return filtered.sort(
       (a, b) => b.startTime.getTime() - a.startTime.getTime(),
     );
-  }, [
-    timeEntries,
-    searchTerm,
-    selectedOrganization,
-    timeFilter,
-    organizationMap,
-  ]);
+  }, [timeEntries, searchTerm, selectedProject, timeFilter, projectMap]);
 
   // Calculate total time for filtered entries
   const totalTime = useMemo(() => {
@@ -151,18 +142,15 @@ export default function TimeEntriesPage() {
               />
             </div>
 
-            <Select
-              value={selectedOrganization}
-              onValueChange={setSelectedOrganization}
-            >
+            <Select value={selectedProject} onValueChange={setSelectedProject}>
               <SelectTrigger>
-                <SelectValue placeholder="Select organization" />
+                <SelectValue placeholder="Select project" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Organizations</SelectItem>
-                {organizations.map((org) => (
-                  <SelectItem key={org.id} value={org.id}>
-                    {org.name}
+                <SelectItem value="all">All Projects</SelectItem>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -194,27 +182,27 @@ export default function TimeEntriesPage() {
                 No time entries found
               </h3>
               <p className="text-muted-foreground text-center">
-                {searchTerm ||
-                selectedOrganization !== "all" ||
-                timeFilter !== "all"
+                {searchTerm || selectedProject !== "all" || timeFilter !== "all"
                   ? "Try adjusting your filters to see more results."
                   : "Start tracking time to see your entries here."}
               </p>
             </CardContent>
           </Card>
         ) : (
-          filteredEntries.map((entry) => {
-            const organization = organizationMap.get(entry.organizationId);
-            if (!organization) return null;
+          <div className="space-y-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredEntries.map((entry) => {
+              const project = projectMap.get(entry.projectId);
+              if (!project) return null;
 
-            return (
-              <TimeEntryCard
-                key={entry.id}
-                timeEntry={entry}
-                organization={organization}
-              />
-            );
-          })
+              return (
+                <TimeEntryCard
+                  key={entry.id}
+                  timeEntry={entry}
+                  project={project}
+                />
+              );
+            })}
+          </div>
         )}
       </div>
     </div>

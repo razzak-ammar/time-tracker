@@ -1,18 +1,18 @@
 "use client";
 
 import { useTimeTracking } from "@/hooks/useTimeTracking";
-import { PinnedOrganizationCard } from "@/components/organizations/PinnedOrganizationCard";
-import { OrganizationForm } from "@/components/organizations/OrganizationForm";
+import { PinnedProjectCard } from "@/components/projects/PinnedProjectCard";
+import { ProjectForm } from "@/components/projects/ProjectForm";
 import { Button } from "@/components/ui/button";
 import { Plus, Settings } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
 
 export default function PinnedPage() {
-  const { getPinnedOrganizations } = useTimeTracking();
+  const { getPinnedProjects } = useTimeTracking();
   const [showAddForm, setShowAddForm] = useState(false);
 
-  const pinnedOrganizations = getPinnedOrganizations();
+  const pinnedProjects = getPinnedProjects();
 
   return (
     <div className="w-full max-w-none p-4 md:p-8 space-y-6 overflow-x-hidden">
@@ -50,13 +50,10 @@ export default function PinnedPage() {
       </div>
 
       {/* Projects Grid */}
-      {pinnedOrganizations.length > 0 ? (
+      {pinnedProjects.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-          {pinnedOrganizations.map((organization) => (
-            <PinnedOrganizationCard
-              key={organization.id}
-              organization={organization}
-            />
+          {pinnedProjects.map((project) => (
+            <PinnedProjectCard key={project.id} project={project} />
           ))}
         </div>
       ) : (
@@ -91,7 +88,7 @@ export default function PinnedPage() {
       )}
 
       {/* Add Project Form */}
-      <OrganizationForm
+      <ProjectForm
         open={showAddForm}
         onOpenChange={setShowAddForm}
         onSuccess={() => setShowAddForm(false)}

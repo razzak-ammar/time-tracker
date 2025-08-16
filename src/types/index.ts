@@ -1,4 +1,4 @@
-export interface Organization {
+export interface Project {
   id: string;
   name: string;
   color: string;
@@ -10,7 +10,7 @@ export interface Organization {
 
 export interface TimeEntry {
   id: string;
-  organizationId: string;
+  projectId: string;
   userId: string;
   startTime: Date;
   endTime?: Date;
@@ -20,8 +20,8 @@ export interface TimeEntry {
   updatedAt: Date;
 }
 
-export interface TimeEntryWithOrganization extends TimeEntry {
-  organization: Organization;
+export interface TimeEntryWithProject extends TimeEntry {
+  project: Project;
 }
 
 export interface UserProfile {

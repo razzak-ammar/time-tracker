@@ -48,7 +48,7 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-gray-200/50 dark:border-gray-800/50 bg-white/90 dark:bg-gray-900/90 backdrop-blur pt-[env(safe-area-inset-top)]">
-      <div className="mx-auto w-full max-w-screen-2xl px-3 sm:px-4">
+      <div className="mx-auto w-full  px-3 sm:px-4">
         <div className="h-14 md:h-16 flex items-center justify-between gap-2">
           {/* Left: Hamburger (mobile) + Brand */}
           <div className="flex items-center gap-2 min-w-0">

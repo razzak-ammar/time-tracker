@@ -10,6 +10,7 @@ interface ClientChromeProps {
 
 export function ClientChrome({ children }: ClientChromeProps) {
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
 
   const toggleMobileNav = () => {
     setIsMobileNavOpen(!isMobileNavOpen);
@@ -32,11 +33,35 @@ export function ClientChrome({ children }: ClientChromeProps) {
     };
   }, [isMobileNavOpen]);
 
+  // Persist desktop sidebar collapsed state
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("tt_sidebar_collapsed");
+      if (stored !== null) {
+        setIsSidebarCollapsed(stored === "1");
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        "tt_sidebar_collapsed",
+        isSidebarCollapsed ? "1" : "0",
+      );
+    } catch {}
+  }, [isSidebarCollapsed]);
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 overflow-x-hidden">
       <Header onToggleMobileNav={toggleMobileNav} />
       <div className="flex">
-        <Navigation isOpen={isMobileNavOpen} onClose={closeMobileNav} />
+        <Navigation
+          isOpen={isMobileNavOpen}
+          onClose={closeMobileNav}
+          collapsed={isSidebarCollapsed}
+          setCollapsed={setIsSidebarCollapsed}
+        />
         <main className="flex-1 md:ml-0 min-h-[calc(100vh-3.5rem)] md:min-h-[calc(100vh-4rem)] pt-12 md:pt-0 w-0">
           <div className="w-full h-full overflow-x-auto">{children}</div>
         </main>

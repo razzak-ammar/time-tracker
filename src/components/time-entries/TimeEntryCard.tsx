@@ -1,34 +1,52 @@
-'use client';
+"use client";
 
-import { TimeEntry, Organization } from '@/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Clock, Edit, Trash2, Calendar } from 'lucide-react';
-import { format, formatDistanceToNow } from 'date-fns';
-import { useState } from 'react';
-import { updateTimeEntry, deleteTimeEntry } from '@/lib/firebase-service';
+import { TimeEntry, Project } from "@/types";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Clock, Edit, Trash2, Calendar } from "lucide-react";
+import { format } from "date-fns";
+import { useState } from "react";
+import { updateTimeEntry, deleteTimeEntry } from "@/lib/firebase-service";
 
 interface TimeEntryCardProps {
   timeEntry: TimeEntry;
-  organization: Organization;
+  project: Project;
   onUpdate?: () => void;
 }
 
-export function TimeEntryCard({ timeEntry, organization, onUpdate }: TimeEntryCardProps) {
+export function TimeEntryCard({
+  timeEntry,
+  project,
+  onUpdate,
+}: TimeEntryCardProps) {
   const [editOpen, setEditOpen] = useState(false);
-  const [startTime, setStartTime] = useState(format(timeEntry.startTime, "yyyy-MM-dd'T'HH:mm"));
-  const [endTime, setEndTime] = useState(timeEntry.endTime ? format(timeEntry.endTime, "yyyy-MM-dd'T'HH:mm") : '');
-  const [description, setDescription] = useState(timeEntry.description || '');
+  const [startTime, setStartTime] = useState(
+    format(timeEntry.startTime, "yyyy-MM-dd'T'HH:mm"),
+  );
+  const [endTime, setEndTime] = useState(
+    timeEntry.endTime ? format(timeEntry.endTime, "yyyy-MM-dd'T'HH:mm") : "",
+  );
+  const [description, setDescription] = useState(timeEntry.description || "");
   const [loading, setLoading] = useState(false);
 
-  const duration = timeEntry.endTime 
-    ? Math.round((timeEntry.endTime.getTime() - timeEntry.startTime.getTime()) / (1000 * 60))
-    : Math.round((new Date().getTime() - timeEntry.startTime.getTime()) / (1000 * 60));
+  const duration = timeEntry.endTime
+    ? Math.round(
+        (timeEntry.endTime.getTime() - timeEntry.startTime.getTime()) /
+          (1000 * 60),
+      )
+    : Math.round(
+        (new Date().getTime() - timeEntry.startTime.getTime()) / (1000 * 60),
+      );
 
   const formatDuration = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
@@ -47,21 +65,21 @@ export function TimeEntryCard({ timeEntry, organization, onUpdate }: TimeEntryCa
       onUpdate?.();
       setEditOpen(false);
     } catch (error) {
-      console.error('Error updating time entry:', error);
+      console.error("Error updating time entry:", error);
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this time entry?')) return;
-    
+    if (!confirm("Are you sure you want to delete this time entry?")) return;
+
     setLoading(true);
     try {
       await deleteTimeEntry(timeEntry.id);
       onUpdate?.();
     } catch (error) {
-      console.error('Error deleting time entry:', error);
+      console.error("Error deleting time entry:", error);
     } finally {
       setLoading(false);
     }
@@ -69,58 +87,70 @@ export function TimeEntryCard({ timeEntry, organization, onUpdate }: TimeEntryCa
 
   return (
     <>
-      <Card className="hover:shadow-md transition-shadow">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <div 
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: organization.color }}
+      {/* hover effect on card with transition and background*/}
+      <Card className="group relative overflow-hidden hover:shadow-md transition-all duration-300 hover:scale-102 bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 h-full">
+        {/* Active indicator */}
+        {timeEntry.isActive && (
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-400 to-cyan-400" />
+        )}
+        <CardContent className="p-4 md:p-5 space-y-2">
+          {/* Header row */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div
+                className="w-3 h-3 rounded-full flex-shrink-0"
+                style={{ backgroundColor: project.color }}
               />
-              <CardTitle className="text-base">{organization.name}</CardTitle>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Badge variant={timeEntry.isActive ? "default" : "secondary"}>
-                {timeEntry.isActive ? 'Active' : 'Completed'}
-              </Badge>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setEditOpen(true)}
-                className="h-8 w-8 p-0"
-              >
-                <Edit className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center space-x-1 text-muted-foreground">
-              <Calendar className="h-4 w-4" />
-              <span>{format(timeEntry.startTime, 'MMM d, yyyy')}</span>
-            </div>
-            <div className="flex items-center space-x-1 text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span>{formatDuration(duration)}</span>
-            </div>
-          </div>
-          
-          <div className="text-sm space-y-1">
-            <div className="flex items-center space-x-2">
-              <span className="text-muted-foreground">Started:</span>
-              <span>{format(timeEntry.startTime, 'h:mm a')}</span>
-            </div>
-            {timeEntry.endTime && (
-              <div className="flex items-center space-x-2">
-                <span className="text-muted-foreground">Ended:</span>
-                <span>{format(timeEntry.endTime, 'h:mm a')}</span>
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="font-medium truncate">{project.name}</span>
+                <Badge
+                  variant={timeEntry.isActive ? "default" : "secondary"}
+                  className="px-2 py-0 text-xs"
+                >
+                  {timeEntry.isActive ? "Active" : "Done"}
+                </Badge>
               </div>
-            )}
+            </div>
+            {/* make it a bit gray */}
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setEditOpen(true)}
+              className="h-8 p-0 opacity-0 group-hover:opacity-100 bg-gray-200 hover:bg-gray-300 text-gray-800"
+              aria-label="Edit time entry"
+            >
+              <Edit className="h-4 w-4" />
+              Edit
+            </Button>
           </div>
-          
+
+          {/* Meta row: date • time range • duration */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs md:text-sm text-muted-foreground">
+            <div className="inline-flex items-center gap-1">
+              <Calendar className="h-3.5 w-3.5" />
+              <span>{format(timeEntry.startTime, "EEE, MMM d")}</span>
+            </div>
+            <span className="hidden sm:inline">•</span>
+            <div className="inline-flex items-center gap-1">
+              <Clock className="h-3.5 w-3.5" />
+              <span>
+                {format(timeEntry.startTime, "h:mm a")} —{" "}
+                {timeEntry.endTime
+                  ? format(timeEntry.endTime, "h:mm a")
+                  : "Now"}
+              </span>
+            </div>
+            <span className="hidden sm:inline">•</span>
+            <div className="inline-flex items-center gap-1">
+              <span className="font-medium text-foreground">
+                {formatDuration(duration)}
+              </span>
+            </div>
+          </div>
+
+          {/* Description (clamped) */}
           {timeEntry.description && (
-            <div className="text-sm text-muted-foreground">
+            <div className="text-sm text-muted-foreground line-clamp-2">
               {timeEntry.description}
             </div>
           )}
@@ -128,31 +158,38 @@ export function TimeEntryCard({ timeEntry, organization, onUpdate }: TimeEntryCa
       </Card>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900">
           <DialogHeader>
             <DialogTitle>Edit Time Entry</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="startTime">Start Time</Label>
-              <Input
-                id="startTime"
-                type="datetime-local"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-              />
+              <div className="relative">
+                <Input
+                  id="startTime"
+                  type="datetime-local"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  className="pr-10"
+                />
+                <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" />
+              </div>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="endTime">End Time</Label>
-              <Input
-                id="endTime"
-                type="datetime-local"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-              />
+              <div className="relative">
+                <Input
+                  id="endTime"
+                  type="datetime-local"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                />
+                <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" />
+              </div>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
               <Textarea
@@ -163,7 +200,7 @@ export function TimeEntryCard({ timeEntry, organization, onUpdate }: TimeEntryCa
                 rows={3}
               />
             </div>
-            
+
             <div className="flex justify-between">
               <Button
                 variant="destructive"
@@ -174,16 +211,23 @@ export function TimeEntryCard({ timeEntry, organization, onUpdate }: TimeEntryCa
                 <Trash2 className="h-4 w-4 mr-1" />
                 Delete
               </Button>
-              
+
               <div className="space-x-2">
                 <Button
                   variant="outline"
                   onClick={() => setEditOpen(false)}
                   disabled={loading}
+                  size="sm"
                 >
                   Cancel
                 </Button>
-                <Button onClick={handleSave} disabled={loading}>
+                {/* style the button to be green */}
+                <Button
+                  onClick={handleSave}
+                  disabled={loading}
+                  className="bg-green-900 hover:bg-green-700 text-white"
+                  size="sm"
+                >
                   Save Changes
                 </Button>
               </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Organization } from "@/types";
+import { Project } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,14 +11,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { createOrganization, updateOrganization } from "@/lib/firebase-service";
+import { createProject, updateProject } from "@/lib/firebase-service";
 import { useAuth } from "@/contexts/AuthContext";
 import { Check } from "lucide-react";
 
-interface OrganizationFormProps {
+interface ProjectFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  organization?: Organization | null;
+  project?: Project | null;
   onSuccess?: () => void;
 }
 
@@ -37,26 +37,26 @@ const COLORS = [
   "#6366f1",
 ];
 
-export function OrganizationForm({
+export function ProjectForm({
   open,
   onOpenChange,
-  organization,
+  project,
   onSuccess,
-}: OrganizationFormProps) {
+}: ProjectFormProps) {
   const { user } = useAuth();
   const [name, setName] = useState("");
   const [color, setColor] = useState(COLORS[0]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (organization) {
-      setName(organization.name);
-      setColor(organization.color);
+    if (project) {
+      setName(project.name);
+      setColor(project.color);
     } else {
       setName("");
       setColor(COLORS[0]);
     }
-  }, [organization, open]);
+  }, [project, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,10 +65,10 @@ export function OrganizationForm({
     setLoading(true);
 
     try {
-      if (organization) {
-        await updateOrganization(organization.id, { name: name.trim(), color });
+      if (project) {
+        await updateProject(project.id, { name: name.trim(), color });
       } else {
-        await createOrganization({
+        await createProject({
           name: name.trim(),
           color,
           userId: user.uid,
@@ -89,9 +89,7 @@ export function OrganizationForm({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>
-            {organization ? "Edit Project" : "Add Project"}
-          </DialogTitle>
+          <DialogTitle>{project ? "Edit Project" : "Add Project"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -160,7 +158,7 @@ export function OrganizationForm({
               Cancel
             </Button>
             <Button type="submit" disabled={loading || !name.trim()}>
-              {organization ? "Update" : "Create"}
+              {project ? "Update" : "Create"}
             </Button>
           </div>
         </form>
@@ -168,3 +166,5 @@ export function OrganizationForm({
     </Dialog>
   );
 }
+
+

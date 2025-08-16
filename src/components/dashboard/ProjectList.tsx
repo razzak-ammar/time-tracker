@@ -1,43 +1,43 @@
 "use client";
 
-import { Organization, TimeEntry } from "@/types";
-import { OrganizationCard } from "@/components/organizations/OrganizationCard";
+import { Project, TimeEntry } from "@/types";
+import { ProjectCard } from "@/components/projects/ProjectCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Search, Grid, List, Filter } from "lucide-react";
 import { useState } from "react";
-import { OrganizationForm } from "@/components/organizations/OrganizationForm";
+import { ProjectForm } from "@/components/projects/ProjectForm";
 import { Badge } from "@/components/ui/badge";
 
-interface OrganizationListProps {
-  organizations: Organization[];
+interface ProjectListProps {
+  projects: Project[];
   activeTimeEntry: TimeEntry | null;
   elapsedTime: string;
   onRefresh?: () => void;
 }
 
-export function OrganizationList({
-  organizations,
+export function ProjectList({
+  projects,
   activeTimeEntry,
   elapsedTime,
   onRefresh,
-}: OrganizationListProps) {
+}: ProjectListProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [showPinnedOnly, setShowPinnedOnly] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [formOpen, setFormOpen] = useState(false);
 
-  const filteredOrganizations = organizations.filter((org) => {
-    const matchesSearch = org.name
+  const filteredProjects = projects.filter((project) => {
+    const matchesSearch = project.name
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
-    const matchesPinned = showPinnedOnly ? org.isPinned : true;
+    const matchesPinned = showPinnedOnly ? project.isPinned : true;
     return matchesSearch && matchesPinned;
   });
 
-  const pinnedOrganizations = organizations.filter((org) => org.isPinned);
-  const regularOrganizations = filteredOrganizations.filter(
-    (org) => !org.isPinned,
+  const pinnedProjects = projects.filter((project) => project.isPinned);
+  const regularProjects = filteredProjects.filter(
+    (project) => !project.isPinned,
   );
 
   return (
@@ -109,7 +109,7 @@ export function OrganizationList({
       </div>
 
       {/* Pinned Projects */}
-      {pinnedOrganizations.length > 0 && !showPinnedOnly && (
+      {pinnedProjects.length > 0 && !showPinnedOnly && (
         <div className="space-y-3 md:space-y-4">
           <div className="flex items-center gap-2 md:gap-3">
             <div className="w-1 h-4 md:h-6 bg-gradient-to-b from-amber-400 to-orange-500 rounded-full" />
@@ -120,7 +120,7 @@ export function OrganizationList({
               variant="secondary"
               className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 text-xs"
             >
-              {pinnedOrganizations.length}
+              {pinnedProjects.length}
             </Badge>
           </div>
           <div
@@ -130,13 +130,13 @@ export function OrganizationList({
                 : "space-y-4 md:space-y-6"
             }
           >
-            {pinnedOrganizations.map((org) => (
-              <OrganizationCard
-                key={org.id}
-                organization={org}
-                isActive={activeTimeEntry?.organizationId === org.id}
+            {pinnedProjects.map((project) => (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                isActive={activeTimeEntry?.projectId === project.id}
                 elapsedTime={
-                  activeTimeEntry?.organizationId === org.id
+                  activeTimeEntry?.projectId === project.id
                     ? elapsedTime
                     : undefined
                 }
@@ -147,7 +147,7 @@ export function OrganizationList({
       )}
 
       {/* All Projects */}
-      {regularOrganizations.length > 0 && (
+      {regularProjects.length > 0 && (
         <div className="space-y-3 md:space-y-4">
           {!showPinnedOnly && (
             <div className="flex items-center gap-2 md:gap-3">
@@ -159,7 +159,7 @@ export function OrganizationList({
                 variant="secondary"
                 className="bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 text-xs"
               >
-                {regularOrganizations.length}
+                {regularProjects.length}
               </Badge>
             </div>
           )}
@@ -170,13 +170,13 @@ export function OrganizationList({
                 : "space-y-4 md:space-y-6"
             }
           >
-            {regularOrganizations.map((org) => (
-              <OrganizationCard
-                key={org.id}
-                organization={org}
-                isActive={activeTimeEntry?.organizationId === org.id}
+            {regularProjects.map((project) => (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                isActive={activeTimeEntry?.projectId === project.id}
                 elapsedTime={
-                  activeTimeEntry?.organizationId === org.id
+                  activeTimeEntry?.projectId === project.id
                     ? elapsedTime
                     : undefined
                 }
@@ -187,7 +187,7 @@ export function OrganizationList({
       )}
 
       {/* Empty State */}
-      {filteredOrganizations.length === 0 && (
+      {filteredProjects.length === 0 && (
         <div className="text-center py-8 md:py-16">
           <div className="w-16 h-16 md:w-24 md:h-24 mx-auto mb-4 md:mb-6 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 rounded-full flex items-center justify-center">
             <Plus className="w-8 h-8 md:w-12 md:h-12 text-gray-400" />
@@ -214,7 +214,7 @@ export function OrganizationList({
         </div>
       )}
 
-      <OrganizationForm
+      <ProjectForm
         open={formOpen}
         onOpenChange={setFormOpen}
         onSuccess={onRefresh}

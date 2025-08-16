@@ -1,22 +1,22 @@
 "use client";
 
-import { TimeEntry, Organization } from "@/types";
+import { TimeEntry, Project } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Square, Clock, Play } from "lucide-react";
+import { Square, Play } from "lucide-react";
 import { useTimeTracking } from "@/hooks/useTimeTracking";
 import { format } from "date-fns";
 
 interface ActiveTimerProps {
   timeEntry: TimeEntry;
-  organization: Organization;
+  project: Project;
   elapsedTime: string;
 }
 
 export function ActiveTimer({
   timeEntry,
-  organization,
+  project,
   elapsedTime,
 }: ActiveTimerProps) {
   const { stopTracking } = useTimeTracking();
@@ -32,7 +32,7 @@ export function ActiveTimer({
           <div className="flex items-center space-x-2">
             <div
               className="w-4 h-4 rounded-full"
-              style={{ backgroundColor: organization.color }}
+              style={{ backgroundColor: project.color }}
             />
             <CardTitle className="text-lg sm:text-xl">
               Currently Tracking
@@ -50,7 +50,7 @@ export function ActiveTimer({
       <CardContent className="space-y-4">
         <div className="text-center">
           <div className="text-2xl sm:text-3xl font-bold text-primary mb-2">
-            {organization.name}
+            {project.name}
           </div>
           <div className="text-xl sm:text-2xl font-mono text-muted-foreground">
             {elapsedTime}

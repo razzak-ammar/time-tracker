@@ -1,29 +1,31 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { Organization, TimeEntry } from '@/types';
+import { useState, useEffect, useCallback } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { Project, TimeEntry } from "@/types";
 import {
   createTimeEntry,
   updateTimeEntry,
   subscribeToActiveTimeEntry,
-  subscribeToOrganizations,
+  subscribeToProjects,
   subscribeToTimeEntries,
-} from '@/lib/firebase-service';
-import { formatDistanceToNow } from 'date-fns';
+} from "@/lib/firebase-service";
+import { formatDistanceToNow } from "date-fns";
 
 export function useTimeTracking() {
   const { user } = useAuth();
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
-  const [activeTimeEntry, setActiveTimeEntry] = useState<TimeEntry | null>(null);
-  const [elapsedTime, setElapsedTime] = useState<string>('');
+  const [activeTimeEntry, setActiveTimeEntry] = useState<TimeEntry | null>(
+    null,
+  );
+  const [elapsedTime, setElapsedTime] = useState<string>("");
 
-  // Subscribe to organizations
+  // Subscribe to projects
   useEffect(() => {
     if (!user) return;
 
-    const unsubscribe = subscribeToOrganizations(user.uid, setOrganizations);
+    const unsubscribe = subscribeToProjects(user.uid, setProjects);
     return unsubscribe;
   }, [user]);
 
@@ -39,19 +41,24 @@ export function useTimeTracking() {
   useEffect(() => {
     if (!user) return;
 
-    const unsubscribe = subscribeToActiveTimeEntry(user.uid, setActiveTimeEntry);
+    const unsubscribe = subscribeToActiveTimeEntry(
+      user.uid,
+      setActiveTimeEntry,
+    );
     return unsubscribe;
   }, [user]);
 
   // Update elapsed time for active entry
   useEffect(() => {
     if (!activeTimeEntry) {
-      setElapsedTime('');
+      setElapsedTime("");
       return;
     }
 
     const updateElapsedTime = () => {
-      const elapsed = formatDistanceToNow(activeTimeEntry.startTime, { includeSeconds: true });
+      const elapsed = formatDistanceToNow(activeTimeEntry.startTime, {
+        includeSeconds: true,
+      });
       setElapsedTime(elapsed);
     };
 
@@ -61,18 +68,21 @@ export function useTimeTracking() {
     return () => clearInterval(interval);
   }, [activeTimeEntry]);
 
-  const startTracking = useCallback(async (organizationId: string) => {
-    if (!user) return;
+  const startTracking = useCallback(
+    async (projectId: string) => {
+      if (!user) return;
 
-    const newTimeEntry: Omit<TimeEntry, 'id' | 'createdAt' | 'updatedAt'> = {
-      organizationId,
-      userId: user.uid,
-      startTime: new Date(),
-      isActive: true,
-    };
+      const newTimeEntry: Omit<TimeEntry, "id" | "createdAt" | "updatedAt"> = {
+        projectId,
+        userId: user.uid,
+        startTime: new Date(),
+        isActive: true,
+      };
 
-    await createTimeEntry(newTimeEntry);
-  }, [user]);
+      await createTimeEntry(newTimeEntry);
+    },
+    [user],
+  );
 
   const stopTracking = useCallback(async () => {
     if (!activeTimeEntry || !user) return;
@@ -83,29 +93,35 @@ export function useTimeTracking() {
     });
   }, [activeTimeEntry, user]);
 
-  const updateTimeEntryDescription = useCallback(async (timeEntryId: string, description: string) => {
-    if (!user) return;
+  const updateTimeEntryDescription = useCallback(
+    async (timeEntryId: string, description: string) => {
+      if (!user) return;
 
-    await updateTimeEntry(timeEntryId, { description });
-  }, [user]);
+      await updateTimeEntry(timeEntryId, { description });
+    },
+    [user],
+  );
 
-  const getTimeEntriesForOrganization = useCallback((organizationId: string) => {
-    return timeEntries.filter(entry => entry.organizationId === organizationId);
-  }, [timeEntries]);
+  const getTimeEntriesForProject = useCallback(
+    (projectId: string) => {
+      return timeEntries.filter((entry) => entry.projectId === projectId);
+    },
+    [timeEntries],
+  );
 
-  const getPinnedOrganizations = useCallback(() => {
-    return organizations.filter(org => org.isPinned);
-  }, [organizations]);
+  const getPinnedProjects = useCallback(() => {
+    return projects.filter((p) => p.isPinned);
+  }, [projects]);
 
   return {
-    organizations,
+    projects,
     timeEntries,
     activeTimeEntry,
     elapsedTime,
     startTracking,
     stopTracking,
     updateTimeEntryDescription,
-    getTimeEntriesForOrganization,
-    getPinnedOrganizations,
+    getTimeEntriesForProject,
+    getPinnedProjects,
   };
 }

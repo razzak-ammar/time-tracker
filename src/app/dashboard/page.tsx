@@ -1,19 +1,26 @@
 "use client";
 
 import { useTimeTracking } from "@/hooks/useTimeTracking";
-import { OrganizationList } from "@/components/dashboard/OrganizationList";
+import { ProjectList } from "@/components/projects/ProjectList";
 import { ActiveTimer } from "@/components/dashboard/ActiveTimer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Clock, Calendar, TrendingUp } from "lucide-react";
+import { Clock, Calendar, TrendingUp, ChartBar } from "lucide-react";
 import { format, startOfWeek, endOfWeek, eachDayOfInterval } from "date-fns";
+import { useState } from "react";
+import { ProjectPageHeader } from "@/components/projects/ProjectPageHeader";
 
 export default function DashboardPage() {
-  const { organizations, timeEntries, activeTimeEntry, elapsedTime } =
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showPinnedOnly, setShowPinnedOnly] = useState(false);
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [formOpen, setFormOpen] = useState(false);
+
+  const { projects, timeEntries, activeTimeEntry, elapsedTime } =
     useTimeTracking();
 
   // Get the project for the active time entry
-  const activeOrganization = activeTimeEntry
-    ? organizations.find((org) => org.id === activeTimeEntry.organizationId)
+  const activeProject = activeTimeEntry
+    ? projects.find((project) => project.id === activeTimeEntry.projectId)
     : null;
 
   // Calculate some basic stats
@@ -50,61 +57,82 @@ export default function DashboardPage() {
   };
 
   const StatsCards = () => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Projects</CardTitle>
-          <Calendar className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{organizations.length}</div>
-          <p className="text-xs text-muted-foreground">
-            {organizations.filter((org) => org.isPinned).length} pinned
-          </p>
-        </CardContent>
-      </Card>
+    <div className="bg-gray-900/50 p-8 rounded-lg space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold mb-2 flex items-center justify-center gap-2">
+          <ChartBar className="w-6 h-6 mr-2" /> Stats
+        </h2>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Total Projects
+            </CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{projects.length}</div>
+            <p className="text-xs text-muted-foreground">
+              {projects.filter((project) => project.isPinned).length} pinned
+            </p>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">This Week</CardTitle>
-          <TrendingUp className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">
-            {formatDuration(totalMinutesThisWeek)}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {thisWeekEntries.length} sessions
-          </p>
-        </CardContent>
-      </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">This Week</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {formatDuration(totalMinutesThisWeek)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {thisWeekEntries.length} sessions
+            </p>
+          </CardContent>
+        </Card>
 
-      <Card className="sm:col-span-2">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Sessions</CardTitle>
-          <Clock className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{timeEntries.length}</div>
-          <p className="text-xs text-muted-foreground">
-            {timeEntries.filter((entry) => !entry.endTime).length} active
-          </p>
-        </CardContent>
-      </Card>
+        <Card className="sm:col-span-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Total Sessions
+            </CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{timeEntries.length}</div>
+            <p className="text-xs text-muted-foreground">
+              {timeEntries.filter((entry) => !entry.endTime).length} active
+            </p>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 
   return (
-    <div className="w-full max-w-none px-4 md:px-8 py-6 md:py-8 overflow-x-hidden">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <div className="w-full max-w-none px-4 md:px-8 md:py-8 overflow-x-hidden space-y-6">
+      <ProjectPageHeader
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        showPinnedOnly={showPinnedOnly}
+        setShowPinnedOnly={setShowPinnedOnly}
+        viewMode={viewMode}
+        setFormOpen={setFormOpen}
+        setViewMode={setViewMode}
+      />
+
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         {/* Main column */}
-        <div className="lg:col-span-8 space-y-6">
+        <div className="xl:col-span-8 space-y-6">
           {/* Mobile: Active timer on top */}
-          {activeTimeEntry && activeOrganization && (
+          {activeTimeEntry && activeProject && (
             <div className="lg:hidden">
               <ActiveTimer
                 timeEntry={activeTimeEntry}
-                organization={activeOrganization}
+                project={activeProject}
                 elapsedTime={elapsedTime}
               />
             </div>
@@ -116,21 +144,26 @@ export default function DashboardPage() {
           </div>
 
           {/* Projects */}
-          <OrganizationList
-            organizations={organizations}
+          <ProjectList
+            projects={projects}
             activeTimeEntry={activeTimeEntry}
             elapsedTime={elapsedTime}
+            setFormOpen={setFormOpen}
+            formOpen={formOpen}
+            searchTerm={searchTerm}
+            showPinnedOnly={showPinnedOnly}
+            viewMode={viewMode}
           />
         </div>
 
         {/* Sidebar column */}
-        <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-20 lg:self-start">
+        <div className="lg:col-span-4 space-y-6  lg:self-start">
           {/* Desktop: Active timer */}
-          {activeTimeEntry && activeOrganization && (
+          {activeTimeEntry && activeProject && (
             <div className="hidden lg:block">
               <ActiveTimer
                 timeEntry={activeTimeEntry}
-                organization={activeOrganization}
+                project={activeProject}
                 elapsedTime={elapsedTime}
               />
             </div>
