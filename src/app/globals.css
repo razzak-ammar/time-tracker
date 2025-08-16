@@ -1,26 +1,240 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 84% 4.9%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222.2 84% 4.9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.5rem;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --sidebar-ring: oklch(0.556 0 0);
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --sidebar-ring: oklch(0.556 0 0);
+  }
+
+  /* Accent color themes */
+  :root[data-accent="violet"] {
+    --primary: 252 94% 67%;
+    --ring: 252 94% 67%;
+  }
+  .dark[data-accent="violet"] {
+    --primary: 252 94% 67%;
+    --ring: 252 94% 67%;
+  }
+
+  :root[data-accent="blue"] {
+    --primary: 217 91% 60%;
+    --ring: 217 91% 60%;
+  }
+  .dark[data-accent="blue"] {
+    --primary: 217 91% 60%;
+    --ring: 217 91% 60%;
+  }
+
+  :root[data-accent="emerald"] {
+    --primary: 152 76% 40%;
+    --ring: 152 76% 40%;
+  }
+  .dark[data-accent="emerald"] {
+    --primary: 152 76% 40%;
+    --ring: 152 76% 40%;
+  }
+
+  :root[data-accent="amber"] {
+    --primary: 38 92% 50%;
+    --ring: 38 92% 50%;
+  }
+  .dark[data-accent="amber"] {
+    --primary: 38 92% 50%;
+    --ring: 38 92% 50%;
+  }
+
+  :root[data-accent="rose"] {
+    --primary: 346 77% 49%;
+    --ring: 346 77% 49%;
+  }
+  .dark[data-accent="rose"] {
+    --primary: 346 77% 49%;
+    --ring: 346 77% 49%;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+}
+
+/* Custom scrollbar */
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  /* NOTE: Do not globally override all .flex containers on mobile. */
+  /* Components are responsible for their own layout direction. */
+}
+
+/* Smooth transitions */
+.transition-all {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Timer animation */
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.timer-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Focus ring styles */
+.focus-ring {
+  outline: none;
+}
+
+.focus-ring:focus {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Color picker animations */
+.color-picker-button {
+  transition: all 0.2s ease-in-out;
+}
+
+.color-picker-button:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.color-picker-button:active {
+  transform: scale(0.95);
+}
+
+.color-picker-button.selected {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  /* Ensure proper mobile containment */
+  body {
+    overflow-x: hidden;
+    width: 100vw;
+    max-width: 100%;
+  }
+
+  * {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Fix header overflow on mobile */
+  header {
+    width: 100vw;
+    max-width: 100%;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+  /* Ensure main content doesn't overflow */
+  main {
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  /* Fix flex containers on mobile */
+  .mobile-flex-fix {
+    min-width: 0;
+    flex-shrink: 1;
+  }
+
+  /* Prevent body scroll when mobile nav is open */
+  body.nav-open {
+    overflow: hidden;
+  }
+}
+
+/* Desktop navigation optimizations */
+@media (min-width: 768px) {
+  /* Ensure sidebar stays in place */
+  aside {
+    position: relative;
+    z-index: 10;
+  }
 }
