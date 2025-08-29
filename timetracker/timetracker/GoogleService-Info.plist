@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>API_KEY</key>
+	<string>AIzaSyCH6cAwb5N7gggjrNlOs2t5pxfTQ4_Deh8</string>
+	<key>GCM_SENDER_ID</key>
+	<string>354565747775</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.itsammar.timetracker</string>
+	<key>PROJECT_ID</key>
+	<string>time-tracker-3b6df</string>
+	<key>STORAGE_BUCKET</key>
+	<string>time-tracker-3b6df.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:354565747775:ios:4991154fbb08a103c7348a</string>
+</dict>
+</plist>
