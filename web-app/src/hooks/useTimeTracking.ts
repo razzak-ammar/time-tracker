@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Project, TimeEntry } from "@/types";
 import {
@@ -113,15 +113,46 @@ export function useTimeTracking() {
     return projects.filter((p) => p.isPinned);
   }, [projects]);
 
+  // Get most recently used project based on latest time entry
+  const mostRecentlyUsedProject = useMemo(() => {
+    if (timeEntries.length === 0 || projects.length === 0) {
+      return projects.find((p) => p.isPinned) || projects[0] || null;
+    }
+    
+    // Find the most recent time entry's project
+    const latestEntry = timeEntries[0];
+    return projects.find((p) => p.id === latestEntry.projectId) || projects[0] || null;
+  }, [timeEntries, projects]);
+
+  const createManualEntry = useCallback(
+    async (projectId: string, startTime: Date, endTime: Date, description?: string) => {
+      if (!user) return;
+
+      const newTimeEntry: Omit<TimeEntry, "id" | "createdAt" | "updatedAt"> = {
+        projectId,
+        userId: user.uid,
+        startTime,
+        endTime,
+        description: description?.trim() || undefined,
+        isActive: false,
+      };
+
+      await createTimeEntry(newTimeEntry);
+    },
+    [user],
+  );
+
   return {
     projects,
     timeEntries,
     activeTimeEntry,
     elapsedTime,
+    mostRecentlyUsedProject,
     startTracking,
     stopTracking,
     updateTimeEntryDescription,
     getTimeEntriesForProject,
     getPinnedProjects,
+    createManualEntry,
   };
 }
