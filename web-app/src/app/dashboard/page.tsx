@@ -3,10 +3,12 @@
 import { useTimeTracking } from "@/hooks/useTimeTracking";
 import { ProjectList } from "@/components/projects/ProjectList";
 import { ActiveTimer } from "@/components/dashboard/ActiveTimer";
+import { FullScreenTimer } from "@/components/dashboard/FullScreenTimer";
+import { ManualEntryDialog } from "@/components/time-entries/ManualEntryForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Clock, Calendar, TrendingUp, ChartBar } from "lucide-react";
 import { format, startOfWeek, endOfWeek, eachDayOfInterval } from "date-fns";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ProjectPageHeader } from "@/components/projects/ProjectPageHeader";
 
 export default function DashboardPage() {
@@ -14,9 +16,23 @@ export default function DashboardPage() {
   const [showPinnedOnly, setShowPinnedOnly] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [formOpen, setFormOpen] = useState(false);
+  const [manualEntryOpen, setManualEntryOpen] = useState(false);
+  const [fullScreenTimerOpen, setFullScreenTimerOpen] = useState(false);
+  const hadActiveEntryRef = useRef(false);
 
   const { projects, timeEntries, activeTimeEntry, elapsedTime } =
     useTimeTracking();
+
+  // Auto-open full-screen timer when a timer becomes active (e.g. user just started one)
+  useEffect(() => {
+    if (activeTimeEntry && !hadActiveEntryRef.current) {
+      setFullScreenTimerOpen(true);
+      hadActiveEntryRef.current = true;
+    }
+    if (!activeTimeEntry) {
+      hadActiveEntryRef.current = false;
+    }
+  }, [activeTimeEntry]);
 
   // Get the project for the active time entry
   const activeProject = activeTimeEntry
@@ -57,7 +73,7 @@ export default function DashboardPage() {
   };
 
   const StatsCards = () => (
-    <div className="bg-gray-900/50 p-8 rounded-lg space-y-4">
+    <div className="bg-muted/60 p-8 rounded-lg space-y-4 border border-border/50">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold mb-2 flex items-center justify-center gap-2">
           <ChartBar className="w-6 h-6 mr-2" /> Stats
@@ -114,6 +130,14 @@ export default function DashboardPage() {
 
   return (
     <div className="w-full max-w-none px-4 md:px-8 md:py-8 overflow-x-hidden space-y-6">
+      {activeTimeEntry && activeProject && fullScreenTimerOpen && (
+        <FullScreenTimer
+          timeEntry={activeTimeEntry}
+          project={activeProject}
+          elapsedTime={elapsedTime}
+          onMinimize={() => setFullScreenTimerOpen(false)}
+        />
+      )}
       <ProjectPageHeader
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
@@ -121,7 +145,12 @@ export default function DashboardPage() {
         setShowPinnedOnly={setShowPinnedOnly}
         viewMode={viewMode}
         setFormOpen={setFormOpen}
+        setManualEntryOpen={setManualEntryOpen}
         setViewMode={setViewMode}
+      />
+      <ManualEntryDialog
+        open={manualEntryOpen}
+        onOpenChange={setManualEntryOpen}
       />
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
@@ -134,6 +163,7 @@ export default function DashboardPage() {
                 timeEntry={activeTimeEntry}
                 project={activeProject}
                 elapsedTime={elapsedTime}
+                onExpand={() => setFullScreenTimerOpen(true)}
               />
             </div>
           )}
@@ -165,6 +195,7 @@ export default function DashboardPage() {
                 timeEntry={activeTimeEntry}
                 project={activeProject}
                 elapsedTime={elapsedTime}
+                onExpand={() => setFullScreenTimerOpen(true)}
               />
             </div>
           )}

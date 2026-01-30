@@ -3,6 +3,7 @@
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -21,10 +22,12 @@ type HeaderProps = {
 export function Header({ onToggleMobileNav }: HeaderProps) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme, accent, setAccent } = useTheme();
+  const router = useRouter();
 
   const handleLogout = async () => {
     try {
       await logout();
+      router.replace("/auth");
     } catch (error) {
       console.error("Error logging out:", error);
     }
@@ -47,7 +50,7 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
   type AccentColor = (typeof accentColors)[number]["name"];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-gray-200/50 dark:border-gray-800/50 bg-white/90 dark:bg-gray-900/90 backdrop-blur pt-[env(safe-area-inset-top)]">
+    <header className="sticky top-0 z-50 w-full border-b border-border/80 bg-card/95 dark:bg-gray-900/90 backdrop-blur pt-[env(safe-area-inset-top)]">
       <div className="mx-auto w-full  px-3 sm:px-4">
         <div className="h-14 md:h-16 flex items-center justify-between gap-2">
           {/* Left: Hamburger (mobile) + Brand */}

@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Filter, List, Grid, Plus } from "lucide-react";
+import { Filter, List, Grid, Plus, Clock } from "lucide-react";
 
 interface ProjectPageHeaderProps {
   searchTerm: string;
@@ -9,6 +9,7 @@ interface ProjectPageHeaderProps {
   viewMode: "grid" | "list";
   setViewMode: (value: "grid" | "list") => void;
   setFormOpen: (value: boolean) => void;
+  setManualEntryOpen: (value: boolean) => void;
 }
 
 export function ProjectPageHeader({
@@ -17,6 +18,7 @@ export function ProjectPageHeader({
   viewMode,
   setViewMode,
   setFormOpen,
+  setManualEntryOpen,
 }: ProjectPageHeaderProps) {
   return (
     <div className="space-y-4 md:space-y-6 w-full">
@@ -31,6 +33,16 @@ export function ProjectPageHeader({
         </div>
 
         <div className="flex items-center gap-2 md:gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setManualEntryOpen(true)}
+            className="h-8 md:h-9 text-xs md:text-sm border-emerald-200 dark:border-emerald-900/40 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+          >
+            <Clock className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2 text-emerald-600 dark:text-emerald-400" />
+            <span className="hidden sm:inline">Add Entry</span>
+            <span className="sm:hidden">Entry</span>
+          </Button>
           <Button
             variant="outline"
             size="sm"

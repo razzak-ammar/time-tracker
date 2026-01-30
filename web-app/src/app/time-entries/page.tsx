@@ -2,7 +2,6 @@
 
 import { useTimeTracking } from "@/hooks/useTimeTracking";
 import { TimeEntryCard } from "@/components/time-entries/TimeEntryCard";
-import { ManualEntryButton, ManualEntryFormContent } from "@/components/time-entries/ManualEntryForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
@@ -29,7 +28,6 @@ export default function TimeEntriesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProject, setSelectedProject] = useState<string>("all");
   const [timeFilter, setTimeFilter] = useState<string>("all");
-  const [showManualForm, setShowManualForm] = useState(false);
 
   // Create a map of projects for quick lookup
   const projectMap = useMemo(() => {
@@ -133,7 +131,7 @@ export default function TimeEntriesPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -171,20 +169,9 @@ export default function TimeEntriesPage() {
               </SelectContent>
             </Select>
 
-            <div className="flex items-center justify-end">
-              <ManualEntryButton onToggleExpanded={setShowManualForm} />
-            </div>
           </div>
         </CardContent>
       </Card>
-
-      {/* Manual Entry Form */}
-      {showManualForm && (
-        <ManualEntryFormContent
-          onEntryCreated={() => setShowManualForm(false)}
-          onCancel={() => setShowManualForm(false)}
-        />
-      )}
 
       {/* Time Entries List */}
       <div className="space-y-4">

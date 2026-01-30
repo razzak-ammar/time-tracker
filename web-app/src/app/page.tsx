@@ -12,9 +12,9 @@ export default function HomePage() {
   useEffect(() => {
     if (!loading) {
       if (user) {
-        router.push("/pinned");
+        router.replace("/pinned");
       } else {
-        router.push("/auth");
+        router.replace("/auth");
       }
     }
   }, [user, loading, router]);

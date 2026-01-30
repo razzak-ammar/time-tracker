@@ -20,7 +20,7 @@ export default function AuthPage() {
 
   if (authLoading) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+      <div className="fixed inset-0 flex items-center justify-center bg-background dark:bg-slate-950">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-slate-500" />
           <p className="text-sm text-slate-500">Loading…</p>
@@ -71,7 +71,7 @@ export default function AuthPage() {
       <div className="relative flex flex-1 flex-col">
         {/* Full-height overlay for contrast (right half of screen) */}
         <div
-          className="absolute inset-0 z-0 border-l border-slate-200/80 bg-white dark:border-slate-700/80 dark:bg-slate-900"
+          className="absolute inset-0 z-0 border-l border-border/80 bg-background dark:border-slate-700/80 dark:bg-slate-900"
           aria-hidden
         />
         <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-12">
