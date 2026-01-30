@@ -158,7 +158,7 @@ export function TimeEntryCard({
       </Card>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-md bg-card">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Time Entry</DialogTitle>
           </DialogHeader>
