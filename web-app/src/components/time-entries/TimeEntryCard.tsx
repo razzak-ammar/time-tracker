@@ -93,30 +93,26 @@ export function TimeEntryCard({
         {timeEntry.isActive && (
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-400 to-cyan-400" />
         )}
-        <CardContent className="p-4 md:p-5 space-y-2">
-          {/* Header row */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
+        <CardContent className="p-4 md:p-5 space-y-3">
+          {/* Project name row – full width so name is visible */}
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
               <div
-                className="w-3 h-3 rounded-full flex-shrink-0"
+                className="w-3 h-3 rounded-full flex-shrink-0 mt-0.5"
                 style={{ backgroundColor: project.color }}
               />
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="font-medium truncate">{project.name}</span>
-                <Badge
-                  variant={timeEntry.isActive ? "default" : "secondary"}
-                  className="px-2 py-0 text-xs"
-                >
-                  {timeEntry.isActive ? "Active" : "Done"}
-                </Badge>
-              </div>
+              <span
+                className="font-medium text-sm leading-tight break-words line-clamp-2"
+                title={project.name}
+              >
+                {project.name}
+              </span>
             </div>
-            {/* make it a bit gray */}
             <Button
               variant="default"
               size="sm"
               onClick={() => setEditOpen(true)}
-              className="h-8 p-0 opacity-0 group-hover:opacity-100 bg-gray-200 hover:bg-gray-300 text-gray-800"
+              className="h-8 px-2 opacity-0 group-hover:opacity-100 bg-gray-200 hover:bg-gray-300 text-gray-800 flex-shrink-0"
               aria-label="Edit time entry"
             >
               <Edit className="h-4 w-4" />
@@ -124,8 +120,15 @@ export function TimeEntryCard({
             </Button>
           </div>
 
-          {/* Meta row: date • time range • duration */}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs md:text-sm text-muted-foreground">
+          {/* Status + meta row: badge, date, time range, duration */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs md:text-sm text-muted-foreground">
+            <Badge
+              variant={timeEntry.isActive ? "default" : "secondary"}
+              className="px-2 py-0 text-xs w-fit"
+            >
+              {timeEntry.isActive ? "Active" : "Done"}
+            </Badge>
+            <span className="hidden sm:inline">•</span>
             <div className="inline-flex items-center gap-1">
               <Calendar className="h-3.5 w-3.5" />
               <span>{format(timeEntry.startTime, "EEE, MMM d")}</span>
