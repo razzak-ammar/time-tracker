@@ -67,15 +67,18 @@ export function FullScreenTimer({
     const prevPosition = document.body.style.position;
     const prevTop = document.body.style.top;
     const prevWidth = document.body.style.width;
+    const prevMargin = document.body.style.margin;
     document.body.style.overflow = "hidden";
     document.body.style.position = "fixed";
     document.body.style.top = "0";
     document.body.style.width = "100%";
+    document.body.style.margin = "0";
     return () => {
       document.body.style.overflow = prevOverflow;
       document.body.style.position = prevPosition;
       document.body.style.top = prevTop;
       document.body.style.width = prevWidth;
+      document.body.style.margin = prevMargin;
     };
   }, []);
 
@@ -91,9 +94,18 @@ export function FullScreenTimer({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col overflow-hidden h-[100dvh] max-h-[100dvh]">
-      {/* Animated background layer */}
-      <div className="absolute inset-0">
+    <div className="fixed inset-0 z-[100] flex flex-col h-[100dvh] max-h-[100dvh] w-full min-w-full m-0 p-0 border-0 overflow-visible">
+      {/* Animated background layer - extends 2px past edges to eliminate border/crop artifacts */}
+      <div
+        className="absolute overflow-hidden pointer-events-none"
+        style={{
+          top: -2,
+          left: -2,
+          width: "calc(100% + 4px)",
+          height: "calc(100% + 4px)",
+        }}
+        aria-hidden
+      >
         <BackgroundLayer background={background} />
       </div>
 
@@ -237,13 +249,20 @@ function WavesBackground({ className }: { className?: string }) {
         }}
       />
       <svg
-        className="absolute bottom-0 w-full h-1/2 opacity-45"
-        viewBox="0 0 1440 320"
+        className="absolute opacity-45"
+        style={{ 
+          bottom: 0, 
+          left: "-30%", 
+          width: "160%",
+          top: "35%", 
+          minHeight: "65%" 
+        }}
+        viewBox="0 0 1440 400"
         preserveAspectRatio="none"
       >
         <path
           fill="rgba(59, 130, 246, 0.5)"
-          d="M0,160L48,176C96,192,192,224,288,213.3C384,203,480,149,576,154.7C672,160,768,224,864,224C960,224,1056,160,1152,128C1248,96,1344,96,1392,96L1440,96L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"
+          d="M0,160L48,176C96,192,192,224,288,213.3C384,203,480,149,576,154.7C672,160,768,224,864,224C960,224,1056,160,1152,128C1248,96,1344,96,1392,96L1440,96L1440,400L1392,400C1344,400,1248,400,1152,400C1056,400,960,400,864,400C768,400,672,400,576,400C480,400,384,400,288,400C192,400,96,400,48,400L0,400Z"
           style={{
             animation:
               "wave-shift 18s ease-in-out infinite, wave-rise 6s ease-in-out infinite",
@@ -251,7 +270,7 @@ function WavesBackground({ className }: { className?: string }) {
         />
         <path
           fill="rgba(99, 102, 241, 0.4)"
-          d="M0,192L48,197.3C96,203,192,213,288,197.3C384,181,480,139,576,138.7C672,139,768,181,864,186.7C960,192,1056,160,1152,138.7C1248,117,1344,107,1392,101.3L1440,96L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"
+          d="M0,192L48,197.3C96,203,192,213,288,197.3C384,181,480,139,576,138.7C672,139,768,181,864,186.7C960,192,1056,160,1152,138.7C1248,117,1344,107,1392,101.3L1440,96L1440,400L1392,400C1344,400,1248,400,1152,400C1056,400,960,400,864,400C768,400,672,400,576,400C480,400,384,400,288,400C192,400,96,400,48,400L0,400Z"
           style={{
             animation:
               "wave-shift 22s ease-in-out infinite reverse, wave-rise 7s ease-in-out infinite",
@@ -260,7 +279,7 @@ function WavesBackground({ className }: { className?: string }) {
         />
         <path
           fill="rgba(139, 92, 246, 0.3)"
-          d="M0,224L48,208C96,192,192,160,288,165.3C384,171,480,213,576,218.7C672,224,768,192,864,165.3C960,139,1056,117,1152,122.7C1248,128,1344,160,1392,176L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"
+          d="M0,224L48,208C96,192,192,160,288,165.3C384,171,480,213,576,218.7C672,224,768,192,864,165.3C960,139,1056,117,1152,122.7C1248,128,1344,160,1392,176L1440,192L1440,400L1392,400C1344,400,1248,400,1152,400C1056,400,960,400,864,400C768,400,672,400,576,400C480,400,384,400,288,400C192,400,96,400,48,400L0,400Z"
           style={{
             animation:
               "wave-shift 26s ease-in-out infinite, wave-rise 8s ease-in-out infinite",
@@ -388,32 +407,44 @@ function OceanBackground({ className }: { className?: string }) {
           animation: "glow-drift 20s ease-in-out infinite",
         }}
       />
-      {/* viewBox 0 0 1440 230: waves drawn in 0–200, bottom 30 units empty so wave shapes aren't cropped at viewport edge */}
+      {/* viewBox 0 0 1440 280: waves fill from top to bottom (y=280) */}
       <svg
-        className="absolute bottom-0 left-0 w-full opacity-50"
-        style={{ height: "48%" }}
-        viewBox="0 0 1440 230"
+        className="absolute opacity-50"
+        style={{ 
+          bottom: 0, 
+          left: "-20%", 
+          width: "140%",
+          top: "35%", 
+          minHeight: "70%",
+          WebkitMaskImage: "linear-gradient(to top, black 0%, black 70%, transparent 100%)",
+          maskImage: "linear-gradient(to top, black 0%, black 70%, transparent 100%)",
+          WebkitMaskSize: "100% 100%",
+          maskSize: "100% 100%",
+        }}
+        viewBox="0 0 1440 280"
         preserveAspectRatio="none"
       >
         <path
           fill="rgba(6, 182, 212, 0.4)"
-          d="M0,100 Q360,50 720,100 T1440,100 L1440,200 L0,200 Z"
-          style={{ animation: "ocean-wave 6s ease-in-out infinite" }}
+          d="M0,100 Q360,50 720,100 T1440,100 L1440,280 L0,280 Z"
+          style={{ animation: "ocean-wave 6s ease-in-out infinite", transformOrigin: "bottom center" }}
         />
         <path
           fill="rgba(14, 165, 233, 0.35)"
-          d="M0,120 Q360,70 720,120 T1440,120 L1440,200 L0,200 Z"
+          d="M0,120 Q360,70 720,120 T1440,120 L1440,280 L0,280 Z"
           style={{
             animation: "ocean-wave 7s ease-in-out infinite",
             animationDelay: "0.5s",
+            transformOrigin: "bottom center",
           }}
         />
         <path
           fill="rgba(59, 130, 246, 0.3)"
-          d="M0,140 Q360,90 720,140 T1440,140 L1440,200 L0,200 Z"
+          d="M0,140 Q360,90 720,140 T1440,140 L1440,280 L0,280 Z"
           style={{
             animation: "ocean-wave 8s ease-in-out infinite",
             animationDelay: "1s",
+            transformOrigin: "bottom center",
           }}
         />
       </svg>
