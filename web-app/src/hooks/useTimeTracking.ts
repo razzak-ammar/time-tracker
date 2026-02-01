@@ -128,13 +128,14 @@ export function useTimeTracking() {
     async (projectId: string, startTime: Date, endTime: Date, description?: string) => {
       if (!user) return;
 
+      const trimmedDescription = description?.trim();
       const newTimeEntry: Omit<TimeEntry, "id" | "createdAt" | "updatedAt"> = {
         projectId,
         userId: user.uid,
         startTime,
         endTime,
-        description: description?.trim() || undefined,
         isActive: false,
+        ...(trimmedDescription ? { description: trimmedDescription } : {}),
       };
 
       await createTimeEntry(newTimeEntry);

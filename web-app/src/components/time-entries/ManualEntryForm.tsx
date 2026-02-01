@@ -13,8 +13,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Check, Clock } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Check, Clock, CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface ManualEntryDialogProps {
   open: boolean;
@@ -30,9 +39,10 @@ export function ManualEntryDialog({
   const { projects, mostRecentlyUsedProject, createManualEntry } =
     useTimeTracking();
   const [loading, setLoading] = useState(false);
-  const [selectedDateStr, setSelectedDateStr] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
+  const [description, setDescription] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [errors, setErrors] = useState<{
     startTime?: string;
@@ -48,14 +58,10 @@ export function ManualEntryDialog({
 
   useEffect(() => {
     if (open) {
-      setSelectedDateStr(format(new Date(), "yyyy-MM-dd"));
+      setSelectedDate(new Date());
+      setDescription("");
     }
   }, [open]);
-
-  const selectedDate = useMemo(
-    () => new Date(`${selectedDateStr}T00:00:00`),
-    [selectedDateStr]
-  );
 
   const duration = useMemo(() => {
     if (!startTime || !endTime) return null;
@@ -98,9 +104,15 @@ export function ManualEntryDialog({
       const dateStr = format(selectedDate, "yyyy-MM-dd");
       const startDateTime = new Date(`${dateStr}T${startTime}`);
       const endDateTime = new Date(`${dateStr}T${endTime}`);
-      await createManualEntry(selectedProjectId, startDateTime, endDateTime);
+      await createManualEntry(
+        selectedProjectId,
+        startDateTime,
+        endDateTime,
+        description || undefined
+      );
       setStartTime("");
       setEndTime("");
+      setDescription("");
       setErrors({});
       onEntryCreated?.();
       onOpenChange(false);
@@ -148,12 +160,37 @@ export function ManualEntryDialog({
                 Date
               </p>
               <div className="flex flex-wrap items-center gap-2">
-                <Input
-                  type="date"
-                  value={selectedDateStr}
-                  onChange={(e) => setSelectedDateStr(e.target.value)}
-                  className="h-8 w-full sm:w-44 text-xs rounded-full dark:[color-scheme:dark]"
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      data-empty={!selectedDate}
+                      className={cn(
+                        "h-10 w-full sm:w-44 justify-start text-left font-normal text-sm rounded-md",
+                        !selectedDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4 bg-primary text-primary-foreground" />
+                      {selectedDate ? (
+                        format(selectedDate, "PPP")
+                      ) : (
+                        <span>Pick a date</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-auto p-0 border bg-gray-700 shadow-md"
+                    align="start"
+                  >
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={(date) => date && setSelectedDate(date)}
+                      initialFocus
+                      className="!bg-popover rounded-md"
+                    />
+                  </PopoverContent>
+                </Popover>
                 <Badge
                   variant="secondary"
                   className="text-xs ml-auto hidden sm:inline-flex"
@@ -205,28 +242,85 @@ export function ManualEntryDialog({
                   Time range
                 </p>
                 <div className="flex items-center gap-2">
-                  <Input
-                    id="start-time"
-                    type="time"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    className={`h-10 text-sm ${errors.startTime ? "border-destructive" : ""
-                      }`}
-                    placeholder="Start"
-                    autoFocus
-                  />
-                  <span className="text-xs text-muted-foreground">to</span>
-                  <Input
-                    id="end-time"
-                    type="time"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    className={`h-10 text-sm ${errors.endTime ? "border-destructive" : ""
-                      }`}
-                    placeholder="End"
-                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "h-10 flex-1 justify-start text-left font-normal text-sm",
+                          !startTime && "text-muted-foreground",
+                          errors.startTime && "border-destructive"
+                        )}
+                      >
+                        <Clock className="mr-2 h-4 w-4 shrink-0" />
+                        {startTime ? (
+                          format(new Date(`2000-01-01T${startTime}`), "p")
+                        ) : (
+                          <span>Start time</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <div className="p-3">
+                        <Input
+                          id="start-time"
+                          type="time"
+                          value={startTime}
+                          onChange={(e) => setStartTime(e.target.value)}
+                          className="h-10 text-sm"
+                          autoFocus
+                        />
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  <span className="text-xs text-muted-foreground shrink-0">to</span>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "h-10 flex-1 justify-start text-left font-normal text-sm",
+                          !endTime && "text-muted-foreground",
+                          errors.endTime && "border-destructive"
+                        )}
+                      >
+                        <Clock className="mr-2 h-4 w-4 shrink-0" />
+                        {endTime ? (
+                          format(new Date(`2000-01-01T${endTime}`), "p")
+                        ) : (
+                          <span>End time</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <div className="p-3">
+                        <Input
+                          id="end-time"
+                          type="time"
+                          value={endTime}
+                          onChange={(e) => setEndTime(e.target.value)}
+                          className="h-10 text-sm"
+                        />
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description" className="text-xs uppercase tracking-wide text-muted-foreground font-normal">
+                Description{" "}
+                <span className="text-muted-foreground/70">(optional)</span>
+              </Label>
+              <Textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="What did you work on?"
+                className="min-h-[72px] resize-none text-sm"
+                rows={3}
+              />
             </div>
 
             {(errors.startTime || errors.endTime) && (
