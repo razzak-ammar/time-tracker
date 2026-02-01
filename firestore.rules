@@ -1,0 +1,105 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if the user owns the document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Helper function to check if the user owns the document being written
+    function isOwnerOfIncoming() {
+      return isAuthenticated() && request.auth.uid == request.resource.data.userId;
+    }
+    
+    // Helper function to validate timestamp fields
+    function isValidTimestamp(field) {
+      return field is timestamp;
+    }
+    
+    // ============================================
+    // PROJECTS COLLECTION
+    // ============================================
+    match /projects/{projectId} {
+      // Users can read their own projects
+      allow read: if isOwner(resource.data.userId);
+      
+      // Users can create projects if they set themselves as the owner
+      allow create: if isOwnerOfIncoming()
+        && request.resource.data.keys().hasAll(['name', 'color', 'userId', 'createdAt', 'updatedAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 100
+        && request.resource.data.color is string
+        && request.resource.data.color.matches('^#[0-9a-fA-F]{6}$')
+        && isValidTimestamp(request.resource.data.createdAt)
+        && isValidTimestamp(request.resource.data.updatedAt);
+      
+      // Users can update their own projects (cannot change userId)
+      allow update: if isOwner(resource.data.userId)
+        && isOwnerOfIncoming()
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 100
+        && request.resource.data.color is string
+        && request.resource.data.color.matches('^#[0-9a-fA-F]{6}$')
+        && isValidTimestamp(request.resource.data.updatedAt);
+      
+      // Users can delete their own projects
+      allow delete: if isOwner(resource.data.userId);
+    }
+    
+    // ============================================
+    // TIME ENTRIES COLLECTION
+    // ============================================
+    match /timeEntries/{entryId} {
+      // Users can read their own time entries
+      allow read: if isOwner(resource.data.userId);
+      
+      // Users can create time entries if they set themselves as the owner
+      allow create: if isOwnerOfIncoming()
+        && request.resource.data.keys().hasAll(['userId', 'projectId', 'startTime', 'isActive', 'createdAt', 'updatedAt'])
+        && request.resource.data.projectId is string
+        && request.resource.data.projectId.size() > 0
+        && isValidTimestamp(request.resource.data.startTime)
+        && request.resource.data.isActive is bool
+        && isValidTimestamp(request.resource.data.createdAt)
+        && isValidTimestamp(request.resource.data.updatedAt)
+        // description is optional
+        && (!('description' in request.resource.data) || request.resource.data.description is string)
+        // endTime is optional (null when timer is active)
+        && (!('endTime' in request.resource.data) || request.resource.data.endTime == null || isValidTimestamp(request.resource.data.endTime));
+      
+      // Users can update their own time entries (cannot change userId)
+      allow update: if isOwner(resource.data.userId)
+        && isOwnerOfIncoming()
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.projectId is string
+        && request.resource.data.projectId.size() > 0
+        && isValidTimestamp(request.resource.data.startTime)
+        && request.resource.data.isActive is bool
+        && isValidTimestamp(request.resource.data.updatedAt)
+        // description is optional
+        && (!('description' in request.resource.data) || request.resource.data.description is string)
+        // endTime is optional (null when timer is active)
+        && (!('endTime' in request.resource.data) || request.resource.data.endTime == null || isValidTimestamp(request.resource.data.endTime));
+      
+      // Users can delete their own time entries
+      allow delete: if isOwner(resource.data.userId);
+    }
+    
+    // ============================================
+    // DEFAULT: Deny all other access
+    // ============================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
