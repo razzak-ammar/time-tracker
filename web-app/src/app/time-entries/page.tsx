@@ -1,8 +1,9 @@
 "use client";
 
 import { useTimeTracking } from "@/hooks/useTimeTracking";
-import { TimeEntryCard } from "@/components/time-entries/TimeEntryCard";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TimeEntryListItem } from "@/components/time-entries/TimeEntryListItem";
+import { TimeBreakdownChart } from "@/components/time-entries/TimeBreakdownChart";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -11,28 +12,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Filter, Calendar } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Search, Calendar } from "lucide-react";
 import { useState, useMemo } from "react";
-import {
-  startOfDay,
-  endOfDay,
-  subDays,
-  startOfWeek,
-  endOfWeek,
-  startOfMonth,
-  endOfMonth,
-} from "date-fns";
+import { startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 
 export default function TimeEntriesPage() {
   const { timeEntries, projects } = useTimeTracking();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProject, setSelectedProject] = useState<string>("all");
-  const [timeFilter, setTimeFilter] = useState<string>("all");
+  const [timeFilter, setTimeFilter] = useState<string>("this-week");
 
   // Create a map of projects for quick lookup
   const projectMap = useMemo(() => {
-    const map = new Map();
-    projects.forEach((org) => map.set(org.id, org));
+    const map = new Map<string, (typeof projects)[0]>();
+    projects.forEach((p) => map.set(p.id, p));
     return map;
   }, [projects]);
 
@@ -43,9 +37,9 @@ export default function TimeEntriesPage() {
     // Filter by search term
     if (searchTerm) {
       filtered = filtered.filter((entry) => {
-        const org = projectMap.get(entry.projectId);
+        const project = projectMap.get(entry.projectId);
         return (
-          org?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          project?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           entry.description?.toLowerCase().includes(searchTerm.toLowerCase())
         );
       });
@@ -58,25 +52,9 @@ export default function TimeEntriesPage() {
       );
     }
 
-    // Filter by time period
+    // Filter by time period (tabs)
     const now = new Date();
     switch (timeFilter) {
-      case "today":
-        filtered = filtered.filter((entry) => {
-          const entryDate = entry.startTime;
-          return entryDate >= startOfDay(now) && entryDate <= endOfDay(now);
-        });
-        break;
-      case "yesterday":
-        const yesterday = subDays(now, 1);
-        filtered = filtered.filter((entry) => {
-          const entryDate = entry.startTime;
-          return (
-            entryDate >= startOfDay(yesterday) &&
-            entryDate <= endOfDay(yesterday)
-          );
-        });
-        break;
       case "this-week":
         filtered = filtered.filter((entry) => {
           const entryDate = entry.startTime;
@@ -89,6 +67,9 @@ export default function TimeEntriesPage() {
           return entryDate >= startOfMonth(now) && entryDate <= endOfMonth(now);
         });
         break;
+      case "all":
+      default:
+        break;
     }
 
     return filtered.sort(
@@ -96,13 +77,12 @@ export default function TimeEntriesPage() {
     );
   }, [timeEntries, searchTerm, selectedProject, timeFilter, projectMap]);
 
-  // Calculate total time for filtered entries
+  // Calculate total time for filtered entries (include active entries)
   const totalTime = useMemo(() => {
+    const now = new Date();
     return filteredEntries.reduce((total, entry) => {
-      if (entry.endTime) {
-        return total + (entry.endTime.getTime() - entry.startTime.getTime());
-      }
-      return total;
+      const end = entry.endTime ?? now;
+      return total + (end.getTime() - entry.startTime.getTime());
     }, 0);
   }, [filteredEntries]);
 
@@ -113,99 +93,117 @@ export default function TimeEntriesPage() {
     return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
   };
 
+  const hasActiveFilters =
+    searchTerm || selectedProject !== "all" || timeFilter !== "all";
+
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-2 sm:space-y-0">
-        <h1 className="text-3xl font-bold">Time Entries</h1>
-        <div className="text-sm text-muted-foreground">
-          Total: {formatDuration(totalTime)}
+      {/* Tabs and Filters */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setTimeFilter("this-week")}
+              className={`h-7 px-3 text-xs font-medium ${
+                timeFilter === "this-week"
+                  ? "bg-secondary/80 ring-1 ring-primary/30"
+                  : ""
+              }`}
+            >
+              This Week
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setTimeFilter("this-month")}
+              className={`h-7 px-3 text-xs font-medium ${
+                timeFilter === "this-month"
+                  ? "bg-secondary/80 ring-1 ring-primary/30"
+                  : ""
+              }`}
+            >
+              This Month
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setTimeFilter("all")}
+              className={`h-7 px-3 text-xs font-medium ${
+                timeFilter === "all"
+                  ? "bg-secondary/80 ring-1 ring-primary/30"
+                  : ""
+              }`}
+            >
+              All Time
+            </Button>
+          </div>
+          <div className="text-sm text-muted-foreground shrink-0">
+            Total: {formatDuration(totalTime)}
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search entries..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Select value={selectedProject} onValueChange={setSelectedProject}>
+            <SelectTrigger className="w-full sm:w-[200px]">
+              <SelectValue placeholder="Select project" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Projects</SelectItem>
+              {projects.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
+                  {project.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Filter className="h-5 w-5" />
-            <span>Filters</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search entries..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 not-focus:text-white"
-              />
-            </div>
-
-            <Select value={selectedProject} onValueChange={setSelectedProject}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select project" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Projects</SelectItem>
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={timeFilter} onValueChange={setTimeFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select time period" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Time</SelectItem>
-                <SelectItem value="today">Today</SelectItem>
-                <SelectItem value="yesterday">Yesterday</SelectItem>
-                <SelectItem value="this-week">This Week</SelectItem>
-                <SelectItem value="this-month">This Month</SelectItem>
-              </SelectContent>
-            </Select>
-
-          </div>
-        </CardContent>
-      </Card>
+      {/* Time Breakdown Chart */}
+      <TimeBreakdownChart entries={filteredEntries} projectMap={projectMap} />
 
       {/* Time Entries List */}
-      <div className="space-y-4">
-        {filteredEntries.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
+      <Card>
+        <CardContent className="p-0">
+          {filteredEntries.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 px-4">
               <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">
-                No time entries found
-              </h3>
-              <p className="text-muted-foreground text-center">
-                {searchTerm || selectedProject !== "all" || timeFilter !== "all"
+              <h3 className="text-lg font-semibold mb-2">No time entries found</h3>
+              <p className="text-muted-foreground text-center text-sm">
+                {hasActiveFilters
                   ? "Try adjusting your filters to see more results."
                   : "Start tracking time to see your entries here."}
               </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4">
-            {filteredEntries.map((entry) => {
-              const project = projectMap.get(entry.projectId);
-              if (!project) return null;
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {filteredEntries.map((entry) => {
+                const project = projectMap.get(entry.projectId);
+                if (!project) return null;
 
-              return (
-                <TimeEntryCard
-                  key={entry.id}
-                  timeEntry={entry}
-                  project={project}
-                />
-              );
-            })}
-          </div>
-        )}
-      </div>
+                return (
+                  <TimeEntryListItem
+                    key={entry.id}
+                    timeEntry={entry}
+                    project={project}
+                  />
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
