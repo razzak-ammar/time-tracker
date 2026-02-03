@@ -1,5 +1,5 @@
 // app/layout.tsx
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -8,9 +8,24 @@ import { ClientChrome } from "./ClientWrapper";
 
 const inter = Inter({ subsets: ["latin"] });
 
+// Theme colors matching globals.css (light: 40 18% 97%, dark: 222.2 84% 4.9%)
+const themeColorLight = "#faf8f5";
+const themeColorDark = "#0a0d14";
+
 export const metadata: Metadata = {
   title: "TimeTracker - Track Your Time",
   description: "A modern time tracking application",
+  other: {
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "default",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: themeColorLight },
+    { media: "(prefers-color-scheme: dark)", color: themeColorDark },
+  ],
 };
 
 export default function RootLayout({

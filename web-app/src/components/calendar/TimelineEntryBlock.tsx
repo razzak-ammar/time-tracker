@@ -153,7 +153,7 @@ export function TimelineEntryBlock({
         isThin ? "pl-2 pr-3 py-1.5 min-h-0" : "pl-3 pr-4 py-2 gap-0.5",
         showResizeHandle ? "right-5" : "right-1.5",
         isActive &&
-          "border-emerald-500/80 shadow-emerald-500/20 shadow-md",
+        "border-emerald-500/80 shadow-emerald-500/20 shadow-md",
       )}
       style={{
         top,

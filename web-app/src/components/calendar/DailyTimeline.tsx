@@ -283,7 +283,7 @@ export function DailyTimeline({
           dayStart={dayStart}
           dayEnd={dayEnd}
           hourHeight={hourHeight}
-          onUpdate={onUpdateEntry ?? (() => {})}
+          onUpdate={onUpdateEntry ?? (() => { })}
           showResizeHandle={showResizeHandle}
         />
       ))}
@@ -299,8 +299,11 @@ export function DailyTimeline({
       {sharedTimeline ? (
         timelineColumn
       ) : (
-        <div className="h-full rounded-xl bg-card/60 backdrop-blur-sm overflow-hidden pt-3 pb-2">
-          <div ref={scrollContainerRef} className="h-full overflow-y-auto">
+        <div className="h-full min-h-0 flex flex-col rounded-xl bg-card/60 backdrop-blur-sm overflow-hidden pt-3 pb-2">
+          <div
+            ref={scrollContainerRef}
+            className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
+          >
             <div className="pt-4">
               <div className="flex" style={{ height: 24 * hourHeight }}>
                 <TimelineHourLabels hourHeight={hourHeight} />

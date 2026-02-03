@@ -4,8 +4,8 @@
   "description": "A simple and elegant time tracking application",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#faf8f5",
+  "theme_color": "#faf8f5",
   "icons": [
     {
       "src": "/icon-192x192.png",

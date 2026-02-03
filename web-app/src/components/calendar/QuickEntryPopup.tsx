@@ -177,7 +177,7 @@ export function QuickEntryPopup({
               !startTimeStr ||
               !endTimeStr ||
               new Date(`${format(date, "yyyy-MM-dd")}T${endTimeStr}`) <=
-                new Date(`${format(date, "yyyy-MM-dd")}T${startTimeStr}`)
+              new Date(`${format(date, "yyyy-MM-dd")}T${startTimeStr}`)
             }
           >
             {loading ? "Saving…" : "Save entry"}

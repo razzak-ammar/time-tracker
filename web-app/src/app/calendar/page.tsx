@@ -127,13 +127,14 @@ export default function CalendarPage() {
   };
 
   return (
-    <div className="h-full box-border px-4 py-3 flex flex-col gap-3">
+    <div className="flex-1 min-h-0 h-full overflow-hidden box-border px-4 py-3 flex flex-col gap-3">
       <div
-        className={
+        className={cn(
+          "shrink-0",
           timelineDays.length > 3
             ? "flex items-center justify-between gap-3"
-            : "grid grid-cols-[1fr_auto_1fr] items-start gap-3"
-        }
+            : "grid grid-cols-[1fr_auto_1fr] items-start gap-3",
+        )}
       >
         {timelineDays.length > 3 ? (
           <WeekHeader
@@ -180,7 +181,7 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 flex flex-col min-w-0">
+      <div className="flex-1 min-h-0 flex flex-col min-w-0 overflow-hidden">
         {viewMode === "day" ? (
           <DailyTimeline
             date={focusedDate}
@@ -191,8 +192,8 @@ export default function CalendarPage() {
             onUpdateEntry={updateTimeEntryFields}
           />
         ) : (
-          <div className="flex-1 min-h-0 flex flex-col rounded-xl bg-card/60 backdrop-blur-sm overflow-hidden">
-            {/* Day column headers - same flex structure as timeline so they align */}
+          <div className="flex-1 min-h-0 min-w-0 flex flex-col rounded-xl bg-card/60 backdrop-blur-sm overflow-hidden">
+            {/* Day column headers - sticky; same flex structure as timeline so they align */}
             <div className="flex shrink-0 border-b border-border/60 bg-muted/30">
               <div className="w-16 shrink-0" />
               <div className="flex flex-1 min-w-0">
