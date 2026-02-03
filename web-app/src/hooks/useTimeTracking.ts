@@ -102,6 +102,15 @@ export function useTimeTracking() {
     [user],
   );
 
+  /** Update any time entry fields (e.g. startTime, endTime for calendar drag/resize) */
+  const updateTimeEntryFields = useCallback(
+    async (timeEntryId: string, updates: Partial<TimeEntry>) => {
+      if (!user) return;
+      await updateTimeEntry(timeEntryId, updates);
+    },
+    [user],
+  );
+
   const getTimeEntriesForProject = useCallback(
     (projectId: string) => {
       return timeEntries.filter((entry) => entry.projectId === projectId);
@@ -152,6 +161,7 @@ export function useTimeTracking() {
     startTracking,
     stopTracking,
     updateTimeEntryDescription,
+    updateTimeEntryFields,
     getTimeEntriesForProject,
     getPinnedProjects,
     createManualEntry,

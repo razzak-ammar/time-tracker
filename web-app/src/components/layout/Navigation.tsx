@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Clock,
   Pin,
+  Calendar,
   X,
   ChevronLeft,
   ChevronRight,
@@ -25,6 +26,12 @@ const navItems = [
     label: "Dashboard",
     icon: LayoutDashboard,
     description: "Overview and statistics",
+  },
+  {
+    href: "/calendar",
+    label: "Calendar",
+    icon: Calendar,
+    description: "Daily and weekly timeline view",
   },
   {
     href: "/time-entries",
@@ -120,7 +127,7 @@ export function Navigation({
                     className={cn(
                       "w-full justify-start h-14 md:h-12 text-base font-medium transition-all duration-200 group relative overflow-hidden touch-manipulation cursor-pointer",
                       collapsed &&
-                        "md:h-12 md:px-0 md:justify-center md:group-hover/sidebar:justify-start md:group-hover/sidebar:px-4",
+                      "md:h-12 md:px-0 md:justify-center md:group-hover/sidebar:justify-start md:group-hover/sidebar:px-4",
                       isActive
                         ? "bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-md"
                         : "hover:bg-accent dark:hover:bg-gray-800 active:bg-accent/80 dark:active:bg-gray-700",
