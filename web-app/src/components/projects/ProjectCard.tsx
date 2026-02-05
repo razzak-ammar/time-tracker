@@ -97,6 +97,12 @@ export function ProjectCard({
       "#14b8a6": "from-teal-500/20 to-cyan-500/20",
       "#f59e0b": "from-amber-500/20 to-orange-500/20",
       "#6366f1": "from-indigo-500/20 to-purple-500/20",
+      "#424242": "from-gray-500/20 to-slate-600/20",
+      "#64748b": "from-slate-500/20 to-slate-600/20",
+      "#0ea5e9": "from-sky-500/20 to-blue-500/20",
+      "#a855f7": "from-purple-500/20 to-violet-500/20",
+      "#d946ef": "from-fuchsia-500/20 to-pink-500/20",
+      "#78716c": "from-stone-500/20 to-zinc-500/20",
     };
     return colorMap[color] || "from-violet-500/20 to-purple-500/20";
   };
@@ -106,7 +112,7 @@ export function ProjectCard({
       className={cn(
         "w-full min-h-[100px] md:min-h-[120px] group relative overflow-hidden transition-all duration-300 hover:shadow-lg border border-gray-200/20 bg-gradient-to-br from-gray-50/50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-900/50 backdrop-blur-sm rounded-xl",
         isActive &&
-          "ring-2 [--tw-ring-color:hsl(var(--ring))] shadow-lg bg-gradient-to-br from-emerald-50/50 to-cyan-50/50 dark:from-emerald-900/20 dark:to-cyan-900/20",
+        "ring-2 [--tw-ring-color:hsl(var(--ring))] shadow-lg bg-gradient-to-br from-emerald-50/50 to-cyan-50/50 dark:from-emerald-900/20 dark:to-cyan-900/20",
       )}
     >
       <div

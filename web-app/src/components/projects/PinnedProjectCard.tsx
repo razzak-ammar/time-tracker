@@ -82,6 +82,12 @@ export function PinnedProjectCard({ project }: PinnedProjectCardProps) {
       "#14b8a6": "from-teal-500 to-cyan-500",
       "#f59e0b": "from-amber-500 to-orange-500",
       "#6366f1": "from-indigo-500 to-purple-500",
+      "#424242": "from-gray-500 to-slate-600",
+      "#64748b": "from-slate-500 to-slate-600",
+      "#0ea5e9": "from-sky-500 to-blue-500",
+      "#a855f7": "from-purple-500 to-violet-500",
+      "#d946ef": "from-fuchsia-500 to-pink-500",
+      "#78716c": "from-stone-500 to-zinc-500",
     };
     return colorMap[color] || "from-violet-500 to-purple-500";
   };
@@ -134,11 +140,10 @@ export function PinnedProjectCard({ project }: PinnedProjectCardProps) {
 
         <Button
           onClick={handleToggleTracking}
-          className={`w-full h-12 md:h-14 text-base md:text-lg font-semibold transition-all duration-300 ${
-            isActive
+          className={`w-full h-12 md:h-14 text-base md:text-lg font-semibold transition-all duration-300 ${isActive
               ? "bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white shadow-lg shadow-red-500/25"
               : "bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white shadow-lg shadow-emerald-500/25"
-          }`}
+            }`}
         >
           {isActive ? (
             <>

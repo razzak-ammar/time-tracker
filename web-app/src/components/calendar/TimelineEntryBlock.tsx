@@ -45,8 +45,14 @@ export function TimelineEntryBlock({
   onUpdate,
   showResizeHandle = false,
 }: TimelineEntryBlockProps) {
-  const isThin = height < 44;
-  const displayHeight = isThin ? Math.max(height, 28) : Math.max(height, 64);
+  const durationMinutes = differenceInMinutes(endTime, startTime);
+  const isThin = durationMinutes < 90;
+  const isVeryThin = durationMinutes < 45;
+  const displayHeight = isVeryThin
+    ? Math.max(height, 40)
+    : isThin
+      ? Math.max(height, 48)
+      : Math.max(height, 64);
 
   const dragStartY = useRef(0);
   const dragStartStart = useRef(new Date(0));
@@ -183,32 +189,41 @@ export function TimelineEntryBlock({
 
       {/* Body - draggable for move */}
       <div
-        className={cn(
-          "flex-1 flex items-center cursor-grab active:cursor-grabbing min-h-0",
-          isThin ? "flex-row" : "flex-col items-start",
-        )}
+        className="flex flex-1 flex-col items-start min-h-0 min-w-0 w-full cursor-grab active:cursor-grabbing overflow-hidden"
         onPointerDown={(e) => startDrag(e, "move")}
       >
-        {isThin ? (
+        {isVeryThin ? (
           <span
-            className="font-medium truncate text-xs leading-tight block"
+            className="block truncate text-xs font-medium leading-tight"
             style={{ minWidth: 0 }}
           >
             {projectName}
           </span>
-        ) : (
-          <>
+        ) : isThin ? (
+          <div className="flex w-full flex-col items-start gap-0.5 overflow-hidden">
             <span
-              className="font-medium truncate block"
+              className="block w-full truncate text-xs font-medium leading-tight"
               title={projectName}
             >
               {projectName}
             </span>
-            <span className="text-[11px] text-muted-foreground block mt-0.5 leading-tight">
+            <span className="block text-[11px] leading-tight text-muted-foreground">
+              {startLabel} – {endLabel}
+            </span>
+          </div>
+        ) : (
+          <>
+            <span
+              className="block truncate text-xs font-medium leading-tight"
+              title={projectName}
+            >
+              {projectName}
+            </span>
+            <span className="mt-0.5 block text-[11px] leading-tight text-muted-foreground">
               {startLabel} – {endLabel}
             </span>
             {description && (
-              <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5 leading-tight">
+              <p className="mt-0.5 line-clamp-2 text-[11px] leading-tight text-muted-foreground">
                 {description}
               </p>
             )}

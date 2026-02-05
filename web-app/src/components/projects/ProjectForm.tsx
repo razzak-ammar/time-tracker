@@ -35,6 +35,12 @@ const COLORS = [
   "#14b8a6",
   "#f59e0b",
   "#6366f1",
+  "#424242",
+  "#64748b",
+  "#0ea5e9",
+  "#a855f7",
+  "#d946ef",
+  "#78716c",
 ];
 
 export function ProjectForm({
@@ -115,10 +121,9 @@ export function ProjectForm({
                     className={`
                       relative w-10 h-10 rounded-full border-2 transition-all duration-200 ease-in-out
                       hover:scale-110 hover:shadow-lg active:scale-95
-                      ${
-                        isSelected
-                          ? "border-gray-800 dark:border-gray-200 shadow-lg scale-110"
-                          : "border-gray-300 dark:border-gray-600 hover:border-gray-500 dark:hover:border-gray-400"
+                      ${isSelected
+                        ? "border-gray-800 dark:border-gray-200 shadow-lg scale-110"
+                        : "border-gray-300 dark:border-gray-600 hover:border-gray-500 dark:hover:border-gray-400"
                       }
                     `}
                     style={{ backgroundColor: colorOption }}
