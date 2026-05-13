@@ -15,13 +15,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Search, Calendar } from "lucide-react";
 import { useState, useMemo } from "react";
-import { startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
+import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from "date-fns";
 
 export default function TimeEntriesPage() {
   const { timeEntries, projects } = useTimeTracking();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProject, setSelectedProject] = useState<string>("all");
-  const [timeFilter, setTimeFilter] = useState<string>("this-week");
+  const [timeFilter, setTimeFilter] = useState<string>("past-7-days");
 
   // Create a map of projects for quick lookup
   const projectMap = useMemo(() => {
@@ -55,6 +55,12 @@ export default function TimeEntriesPage() {
     // Filter by time period (tabs)
     const now = new Date();
     switch (timeFilter) {
+      case "past-7-days":
+        filtered = filtered.filter((entry) => {
+          const entryDate = entry.startTime;
+          return entryDate >= subDays(now, 7) && entryDate <= now;
+        });
+        break;
       case "this-week":
         filtered = filtered.filter((entry) => {
           const entryDate = entry.startTime;
@@ -102,6 +108,18 @@ export default function TimeEntriesPage() {
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setTimeFilter("past-7-days")}
+              className={`h-7 px-3 text-xs font-medium ${
+                timeFilter === "past-7-days"
+                  ? "bg-secondary/80 ring-1 ring-primary/30"
+                  : ""
+              }`}
+            >
+              Past 7 Days
+            </Button>
             <Button
               variant="secondary"
               size="sm"
