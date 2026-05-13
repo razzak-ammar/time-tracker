@@ -3,18 +3,12 @@
 import { TimeEntry, Project } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Clock, Edit, Trash2, Calendar } from "lucide-react";
+import { Clock, Trash2, Calendar, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { updateTimeEntry, deleteTimeEntry } from "@/lib/firebase-service";
 
 interface TimeEntryListItemProps {
@@ -28,7 +22,7 @@ export function TimeEntryListItem({
   project,
   onUpdate,
 }: TimeEntryListItemProps) {
-  const [editOpen, setEditOpen] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [startTime, setStartTime] = useState(
     format(timeEntry.startTime, "yyyy-MM-dd'T'HH:mm"),
   );
@@ -37,6 +31,14 @@ export function TimeEntryListItem({
   );
   const [description, setDescription] = useState(timeEntry.description || "");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setStartTime(format(timeEntry.startTime, "yyyy-MM-dd'T'HH:mm"));
+    setEndTime(
+      timeEntry.endTime ? format(timeEntry.endTime, "yyyy-MM-dd'T'HH:mm") : "",
+    );
+    setDescription(timeEntry.description || "");
+  }, [timeEntry]);
 
   const duration = timeEntry.endTime
     ? Math.round(
@@ -62,7 +64,7 @@ export function TimeEntryListItem({
         description: description.trim() || undefined,
       });
       onUpdate?.();
-      setEditOpen(false);
+      setIsExpanded(false);
     } catch (error) {
       console.error("Error updating time entry:", error);
     } finally {
@@ -85,10 +87,25 @@ export function TimeEntryListItem({
   };
 
   return (
-    <>
+    <div
+      className={`rounded-xl border border-border/70 bg-card overflow-hidden transition-all duration-200 ${
+        isExpanded ? "shadow-md" : "shadow-sm"
+      }`}
+    >
       <div
-        className={`group flex flex-wrap items-center gap-3 py-3 px-4 border-b border-border last:border-b-0 hover:bg-muted/50 transition-colors ${
-          timeEntry.isActive ? "bg-emerald-500/5 dark:bg-emerald-500/10" : ""
+        role="button"
+        tabIndex={0}
+        onClick={() => setIsExpanded((prev) => !prev)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setIsExpanded((prev) => !prev);
+          }
+        }}
+        className={`group flex flex-wrap items-center gap-3 py-4 px-5 transition-colors cursor-pointer ${
+          timeEntry.isActive
+            ? "bg-emerald-500/5 dark:bg-emerald-500/10"
+            : "hover:bg-muted/40"
         }`}
       >
         <div
@@ -118,15 +135,11 @@ export function TimeEntryListItem({
         <span className="font-medium text-sm text-foreground ml-auto flex-shrink-0">
           {formatDuration(duration)}
         </span>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setEditOpen(true)}
-          className="h-8 px-2 opacity-0 group-hover:opacity-100 flex-shrink-0"
-          aria-label="Edit time entry"
-        >
-          <Edit className="h-4 w-4" />
-        </Button>
+        <ChevronDown
+          className={`h-4 w-4 text-muted-foreground transition-transform ${
+            isExpanded ? "rotate-180" : ""
+          }`}
+        />
         {timeEntry.description && (
           <p className="w-full text-sm text-muted-foreground line-clamp-2 mt-0.5 pl-6">
             {timeEntry.description}
@@ -134,51 +147,58 @@ export function TimeEntryListItem({
         )}
       </div>
 
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Edit Time Entry</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="startTime">Start Time</Label>
-              <div className="relative">
-                <Input
-                  id="startTime"
-                  type="datetime-local"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className="pr-10"
-                />
-                <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none text-muted-foreground" />
+      <div
+        className={`grid transition-all duration-300 ease-out ${
+          isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="px-5 pb-5 pt-3 bg-muted/15 space-y-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor={`startTime-${timeEntry.id}`}>Start Time</Label>
+                <div className="relative">
+                  <Input
+                    id={`startTime-${timeEntry.id}`}
+                    type="datetime-local"
+                    value={startTime}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    className="pr-10"
+                  />
+                  <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none text-muted-foreground" />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor={`endTime-${timeEntry.id}`}>End Time</Label>
+                <div className="relative">
+                  <Input
+                    id={`endTime-${timeEntry.id}`}
+                    type="datetime-local"
+                    value={endTime}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    className="pr-10"
+                  />
+                  <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none text-muted-foreground" />
+                </div>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="endTime">End Time</Label>
-              <div className="relative">
-                <Input
-                  id="endTime"
-                  type="datetime-local"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                />
-                <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none text-muted-foreground" />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor={`description-${timeEntry.id}`}>Description</Label>
               <Textarea
-                id="description"
+                id={`description-${timeEntry.id}`}
                 value={description}
+                onClick={(e) => e.stopPropagation()}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="What did you work on?"
                 rows={3}
               />
             </div>
 
-            <div className="flex justify-between">
+            <div className="flex justify-between pt-2">
               <Button
                 variant="destructive"
                 size="sm"
@@ -192,7 +212,16 @@ export function TimeEntryListItem({
               <div className="space-x-2">
                 <Button
                   variant="outline"
-                  onClick={() => setEditOpen(false)}
+                  onClick={() => {
+                    setStartTime(format(timeEntry.startTime, "yyyy-MM-dd'T'HH:mm"));
+                    setEndTime(
+                      timeEntry.endTime
+                        ? format(timeEntry.endTime, "yyyy-MM-dd'T'HH:mm")
+                        : "",
+                    );
+                    setDescription(timeEntry.description || "");
+                    setIsExpanded(false);
+                  }}
                   disabled={loading}
                   size="sm"
                 >
@@ -209,8 +238,8 @@ export function TimeEntryListItem({
               </div>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
-    </>
+        </div>
+      </div>
+    </div>
   );
 }

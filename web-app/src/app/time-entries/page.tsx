@@ -3,7 +3,6 @@
 import { useTimeTracking } from "@/hooks/useTimeTracking";
 import { TimeEntryListItem } from "@/components/time-entries/TimeEntryListItem";
 import { TimeBreakdownChart } from "@/components/time-entries/TimeBreakdownChart";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -192,36 +191,32 @@ export default function TimeEntriesPage() {
       <TimeBreakdownChart entries={filteredEntries} projectMap={projectMap} />
 
       {/* Time Entries List */}
-      <Card>
-        <CardContent className="p-0">
-          {filteredEntries.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 px-4">
-              <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No time entries found</h3>
-              <p className="text-muted-foreground text-center text-sm">
-                {hasActiveFilters
-                  ? "Try adjusting your filters to see more results."
-                  : "Start tracking time to see your entries here."}
-              </p>
-            </div>
-          ) : (
-            <div className="divide-y divide-border">
-              {filteredEntries.map((entry) => {
-                const project = projectMap.get(entry.projectId);
-                if (!project) return null;
+      {filteredEntries.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 px-4 rounded-xl border border-border/50 bg-card/30">
+          <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
+          <h3 className="text-lg font-semibold mb-2">No time entries found</h3>
+          <p className="text-muted-foreground text-center text-sm">
+            {hasActiveFilters
+              ? "Try adjusting your filters to see more results."
+              : "Start tracking time to see your entries here."}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredEntries.map((entry) => {
+            const project = projectMap.get(entry.projectId);
+            if (!project) return null;
 
-                return (
-                  <TimeEntryListItem
-                    key={entry.id}
-                    timeEntry={entry}
-                    project={project}
-                  />
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            return (
+              <TimeEntryListItem
+                key={entry.id}
+                timeEntry={entry}
+                project={project}
+              />
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
