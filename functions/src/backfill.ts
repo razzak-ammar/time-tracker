@@ -1,6 +1,10 @@
 import { applicationDefault, getApps, initializeApp } from "firebase-admin/app";
 import { Firestore, getFirestore } from "firebase-admin/firestore";
-import { contributionFromEntry, TimeEntryDocument } from "./aggregate-utils.js";
+import {
+  TimeEntryDocument,
+  contributionFromEntry,
+  isValidTimeZone,
+} from "./aggregate-utils.js";
 
 const SCHEMA_VERSION = 1;
 const MAX_BATCH_WRITES = 400;
@@ -24,7 +28,9 @@ function addTotal(
 
 function userIdFromArgs(): string {
   if (process.argv.includes("--help") || process.argv.includes("-h")) {
-    console.log("Usage: npm run backfill -- --uid <Firebase Auth UID>");
+    console.log(
+      "Usage: npm run backfill -- --uid <Firebase Auth UID> --timezone <IANA timezone, e.g. America/New_York>",
+    );
     process.exit(0);
   }
   const index = process.argv.indexOf("--uid");
@@ -33,6 +39,17 @@ function userIdFromArgs(): string {
     throw new Error("Usage: npm run backfill -- --uid <Firebase Auth UID>");
   }
   return userId;
+}
+
+function reportingTimeZoneFromArgs(): string {
+  const index = process.argv.indexOf("--timezone");
+  const timeZone = index >= 0 ? process.argv[index + 1] : undefined;
+  if (!timeZone || timeZone.startsWith("--") || !isValidTimeZone(timeZone)) {
+    throw new Error(
+      "Usage: npm run backfill -- --uid <Firebase Auth UID> --timezone <IANA timezone, e.g. America/New_York>",
+    );
+  }
+  return timeZone;
 }
 
 async function deleteCollectionDocuments(firestore: Firestore, path: string): Promise<void> {
@@ -44,7 +61,7 @@ async function deleteCollectionDocuments(firestore: Firestore, path: string): Pr
   }
 }
 
-async function backfillUser(userId: string): Promise<void> {
+async function backfillUser(userId: string, timeZone: string): Promise<void> {
   const firestore = getFirestore();
   const entries = await firestore.collection("timeEntries").where("userId", "==", userId).get();
   const overview: SummaryTotal = { completedSessionCount: 0, durationSeconds: 0 };
@@ -52,7 +69,10 @@ async function backfillUser(userId: string): Promise<void> {
   const daily = new Map<string, { total: SummaryTotal; byProject: Map<string, SummaryTotal> }>();
 
   for (const entry of entries.docs) {
-    const contribution = contributionFromEntry(entry.data() as TimeEntryDocument);
+    const contribution = contributionFromEntry(
+      entry.data() as TimeEntryDocument,
+      timeZone,
+    );
     if (!contribution) continue;
 
     overview.completedSessionCount += 1;
@@ -78,11 +98,16 @@ async function backfillUser(userId: string): Promise<void> {
   await deleteCollectionDocuments(firestore, `users/${userId}/projectSummaries`);
 
   const writes: Array<(batch: FirebaseFirestore.WriteBatch) => void> = [];
+  writes.push((batch) => batch.set(firestore.doc(`users/${userId}/settings/reporting`), {
+    reportingTimeZone: timeZone,
+    updatedAt: new Date(),
+  }));
   writes.push((batch) => batch.set(firestore.doc(`users/${userId}/summaries/overview`), {
     completedSessionCount: overview.completedSessionCount,
     completedDurationSeconds: overview.durationSeconds,
     schemaVersion: SCHEMA_VERSION,
     backfilledAt: new Date(),
+    reportingTimeZone: timeZone,
     updatedAt: new Date(),
   }));
 
@@ -93,6 +118,7 @@ async function backfillUser(userId: string): Promise<void> {
       completedDurationSeconds: total.durationSeconds,
       schemaVersion: SCHEMA_VERSION,
       backfilledAt: new Date(),
+      reportingTimeZone: timeZone,
       updatedAt: new Date(),
     }));
   }
@@ -106,6 +132,7 @@ async function backfillUser(userId: string): Promise<void> {
       byProject,
       schemaVersion: SCHEMA_VERSION,
       backfilledAt: new Date(),
+      reportingTimeZone: timeZone,
       updatedAt: new Date(),
     }));
   }
@@ -119,6 +146,7 @@ async function backfillUser(userId: string): Promise<void> {
   console.log(`Backfilled ${entries.size} entries for ${userId}.`, {
     completedSessions: overview.completedSessionCount,
     completedDurationSeconds: overview.durationSeconds,
+    reportingTimeZone: timeZone,
     dailyDocuments: daily.size,
     projectDocuments: projects.size,
   });
@@ -128,7 +156,7 @@ if (getApps().length === 0) {
   initializeApp({ credential: applicationDefault() });
 }
 
-backfillUser(userIdFromArgs()).catch((error: unknown) => {
+backfillUser(userIdFromArgs(), reportingTimeZoneFromArgs()).catch((error: unknown) => {
   console.error("Backfill failed.", error);
   process.exitCode = 1;
 });

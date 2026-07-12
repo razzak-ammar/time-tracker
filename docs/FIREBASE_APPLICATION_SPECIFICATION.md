@@ -84,20 +84,18 @@ The aggregation worker maintains `users/{uid}/summaries/overview`,
 `users/{uid}/dailySummaries/{YYYY-MM-DD}`, and
 `users/{uid}/projectSummaries/{projectId}` from time-entry writes. These
 documents contain completed-session counts and integer duration seconds;
-active timers are excluded until stopped. Daily buckets use UTC in schema
-version 1, including splitting entries that cross midnight. A session count is
-assigned once to the UTC date of its end time. The current web dashboard uses
-the browser's local timezone, so it does not have identical day/week boundaries
-for users outside UTC; a future summary-based UI must consistently use UTC or a
-versioned per-user reporting timezone.
+active timers are excluded until stopped. Daily buckets use the user's IANA
+reporting timezone in `users/{uid}/settings/reporting`, including splitting
+entries that cross local midnight and daylight-saving transitions. A session is
+counted once on the reporting-timezone date of its end time.
 
 Clients may read only their own aggregate documents and cannot write them.
 The worker uses an Admin SDK transaction plus a private event ledger so a
 replayed Firestore event cannot double-count totals. The worker source is
 present in `functions/src/index.ts`. Historical entries can be rebuilt per user
-with `npm --prefix functions run backfill -- --uid <Firebase Auth UID>` after
-using `gcloud auth application-default login`; do not run that rebuild while
-the target user is writing entries.
+with `npm --prefix functions run backfill -- --uid <Firebase Auth UID> --timezone <IANA timezone>`
+after using `gcloud auth application-default login`; do not run that rebuild
+while the target user is writing entries.
 
 ## Query and real-time subscription contract
 

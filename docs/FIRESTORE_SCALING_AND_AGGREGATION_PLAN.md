@@ -18,17 +18,17 @@ The worker uses a transaction and the private `aggregateEvents/{eventId}`
 ledger to make delivery retries idempotent. Aggregate documents are readable by
 their owner and cannot be written by a client under `firestore.rules`.
 
-Version 1 buckets daily data in UTC. This is intentional and documented in the
-implementation so every client calculates the same day. A future reporting-timezone
-feature requires a schema version bump and backfill; it must not silently change
-the meaning of existing daily documents.
+Each user now has a reporting timezone at
+`users/{uid}/settings/reporting.reportingTimeZone`. New web entries store that
+IANA timezone directly, and the worker uses it to split durations at that
+user's local midnight. This handles daylight-saving transitions correctly.
+Clients can create this preference once; changing it is an Admin/backfill
+operation so historic aggregate buckets cannot silently change meaning.
 
-Completed sessions are counted once on the UTC date of their end time; duration
-is still split across all UTC days they span. This is only semantically aligned
-with the legacy dashboard for a user reporting in UTC. The current web UI uses
-the browser's local timezone, so a future summary-based UI must either use UTC
-throughout or introduce an explicit per-user IANA reporting timezone and
-backfill to a new schema version.
+Completed sessions are counted once on the reporting-timezone date of their end
+time; duration is split across every local calendar day it spans. Existing
+entries without a timezone use the user's reporting preference as a fallback,
+which is set during the required timezone-aware backfill.
 
 The historical backfill command is implemented at `functions/src/backfill.ts`.
 It rebuilds one user's aggregate documents from their existing `timeEntries`.
@@ -193,7 +193,7 @@ As a separate improvement, add backend validation/enforcement for:
 
 1. **Measure first.** Enable Firebase usage/budget alerts and inspect Firestore read counts by screen. Instrument listener creation in development to verify the duplicate-listener fix.
 2. **Deploy the implemented worker and rules.** From the repository root, run `npm --prefix functions ci` followed by `firebase deploy --only functions:aggregateTimeEntry,firestore:rules`. The checked-in Functions predeploy hook compiles TypeScript before upload. The worker must be deployed before any client consumes aggregates.
-3. **Backfill historical entries.** Authenticate local Application Default Credentials with `gcloud auth application-default login`, then run `npm --prefix functions run backfill -- --uid <Firebase Auth UID>`. This rebuilds that user's aggregate documents and stamps them with `backfilledAt` and `schemaVersion`. Do not run it concurrently with that user's entry writes.
+3. **Backfill historical entries.** Authenticate local Application Default Credentials with `gcloud auth application-default login`, then run `npm --prefix functions run backfill -- --uid <Firebase Auth UID> --timezone <IANA timezone>`, for example `America/New_York`. This saves the user's reporting preference, rebuilds their aggregate documents, and stamps them with `backfilledAt` and `schemaVersion`. Do not run it concurrently with that user's entry writes.
 4. **Stop duplicate listeners.** Introduce the root data provider before switching screens; this yields an immediate read reduction with low data risk.
 5. **Dual-read validation.** For a limited set of users, compute dashboard values both ways and log/report mismatches. Keep the all-entry calculation only as a temporary verification path.
 6. **Switch the dashboard and pinned cards.** Read summaries, use bounded history/calendar queries, and remove the full-history listener from ordinary screens.

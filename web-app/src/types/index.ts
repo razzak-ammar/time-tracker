@@ -16,6 +16,7 @@ export interface TimeEntry {
   endTime?: Date;
   description?: string;
   isActive: boolean;
+  reportingTimeZone?: string;
   createdAt: Date;
   updatedAt: Date;
 }
