@@ -2,3 +2,4 @@ node_modules/
 functions/lib/
 .DS_Store
 **/xcuserdata/
+firebase-debug.log
