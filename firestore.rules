@@ -94,6 +94,23 @@ service cloud.firestore {
       // Users can delete their own time entries
       allow delete: if isOwner(resource.data.userId);
     }
+
+    // Aggregate documents are created by the Admin SDK only. Users can read
+    // their own summaries but cannot alter reporting totals from a client.
+    match /users/{userId}/summaries/{summaryId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+
+    match /users/{userId}/dailySummaries/{dateKey} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+
+    match /users/{userId}/projectSummaries/{projectId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
     
     // ============================================
     // DEFAULT: Deny all other access
