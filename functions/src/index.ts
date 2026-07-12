@@ -8,10 +8,8 @@ import { logger } from "firebase-functions";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import {
   Contribution,
-  DEFAULT_REPORTING_TIME_ZONE,
   TimeEntryDocument,
   contributionFromEntry,
-  reportingTimeZone,
 } from "./aggregate-utils.js";
 
 initializeApp();
@@ -82,18 +80,6 @@ async function applyAggregateDeltas(
   before: TimeEntryDocument | undefined,
   after: TimeEntryDocument | undefined,
 ): Promise<void> {
-  const userId = typeof after?.userId === "string"
-    ? after.userId
-    : typeof before?.userId === "string"
-      ? before.userId
-      : null;
-  const settingsSnapshot = userId
-    ? await firestore.doc(`users/${userId}/settings/reporting`).get()
-    : null;
-  const fallbackTimeZone = reportingTimeZone(
-    settingsSnapshot?.data()?.reportingTimeZone,
-    DEFAULT_REPORTING_TIME_ZONE,
-  );
   const overviewDeltas = new Map<string, AggregateDelta>();
   const projectDeltas = new Map<string, AggregateDelta>();
   const dailyDeltas = new Map<string, Map<string, AggregateDelta>>();
@@ -102,14 +88,14 @@ async function applyAggregateDeltas(
     overviewDeltas,
     projectDeltas,
     dailyDeltas,
-    contributionFromEntry(before, fallbackTimeZone),
+    contributionFromEntry(before),
     -1,
   );
   applyContribution(
     overviewDeltas,
     projectDeltas,
     dailyDeltas,
-    contributionFromEntry(after, fallbackTimeZone),
+    contributionFromEntry(after),
     1,
   );
 

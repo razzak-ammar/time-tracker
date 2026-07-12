@@ -76,10 +76,6 @@ service cloud.firestore {
         && (!('description' in request.resource.data) || request.resource.data.description is string)
         // endTime is optional (null when timer is active)
         && (!('endTime' in request.resource.data) || request.resource.data.endTime == null || isValidTimestamp(request.resource.data.endTime))
-        && (!('reportingTimeZone' in request.resource.data)
-          || (request.resource.data.reportingTimeZone is string
-            && request.resource.data.reportingTimeZone.size() > 0
-            && request.resource.data.reportingTimeZone.size() <= 100));
       
       // Users can update their own time entries (cannot change userId)
       allow update: if isOwner(resource.data.userId)
@@ -94,10 +90,6 @@ service cloud.firestore {
         && (!('description' in request.resource.data) || request.resource.data.description is string)
         // endTime is optional (null when timer is active)
         && (!('endTime' in request.resource.data) || request.resource.data.endTime == null || isValidTimestamp(request.resource.data.endTime))
-        && (!('reportingTimeZone' in request.resource.data)
-          || (request.resource.data.reportingTimeZone is string
-            && request.resource.data.reportingTimeZone.size() > 0
-            && request.resource.data.reportingTimeZone.size() <= 100));
       
       // Users can delete their own time entries
       allow delete: if isOwner(resource.data.userId);
@@ -120,22 +112,6 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // The reporting timezone is a user preference, used by the trusted worker
-    // to assign legacy entries to the same calendar day as new entries.
-    match /users/{userId}/settings/{settingId} {
-      allow read: if isOwner(userId);
-      allow create: if isOwner(userId)
-        && settingId == 'reporting'
-        && request.resource.data.keys().hasOnly(['reportingTimeZone', 'updatedAt'])
-        && request.resource.data.reportingTimeZone is string
-        && request.resource.data.reportingTimeZone.size() > 0
-        && request.resource.data.reportingTimeZone.size() <= 100
-        && isValidTimestamp(request.resource.data.updatedAt);
-      // Changing an established reporting timezone requires an Admin backfill
-      // so historic day buckets cannot silently become inconsistent.
-      allow update: if false;
-      allow delete: if false;
-    }
     
     // ============================================
     // DEFAULT: Deny all other access

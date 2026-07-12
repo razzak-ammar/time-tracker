@@ -5,11 +5,9 @@ import {
   updateDoc,
   deleteDoc,
   getDocs,
-  getDoc,
   query,
   where,
   serverTimestamp,
-  setDoc,
   onSnapshot,
   Timestamp,
 } from "firebase/firestore";
@@ -88,31 +86,6 @@ export const createTimeEntry = async (
     updatedAt: serverTimestamp(),
   });
   return docRef.id;
-};
-
-export const getDeviceReportingTimeZone = (): string => {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-  } catch {
-    return "UTC";
-  }
-};
-
-export const getOrCreateReportingTimeZone = async (userId: string) => {
-  const settingsRef = doc(db, "users", userId, "settings", "reporting");
-  const snapshot = await getDoc(settingsRef);
-  const savedTimeZone = snapshot.data()?.reportingTimeZone;
-
-  if (typeof savedTimeZone === "string" && savedTimeZone.length > 0) {
-    return savedTimeZone;
-  }
-
-  const reportingTimeZone = getDeviceReportingTimeZone();
-  await setDoc(settingsRef, {
-    reportingTimeZone,
-    updatedAt: serverTimestamp(),
-  });
-  return reportingTimeZone;
 };
 
 export const updateTimeEntry = async (

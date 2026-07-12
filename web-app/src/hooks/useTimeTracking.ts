@@ -5,8 +5,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Project, TimeEntry } from "@/types";
 import {
   createTimeEntry,
-  getDeviceReportingTimeZone,
-  getOrCreateReportingTimeZone,
   updateTimeEntry,
   subscribeToActiveTimeEntry,
   subscribeToProjects,
@@ -22,19 +20,6 @@ export function useTimeTracking() {
     null,
   );
   const [elapsedTime, setElapsedTime] = useState<string>("");
-  const [reportingTimeZone, setReportingTimeZone] = useState(
-    getDeviceReportingTimeZone,
-  );
-
-  // Persist one reporting timezone per user. New time entries also carry this
-  // value so their aggregate buckets remain stable if they are edited later.
-  useEffect(() => {
-    if (!user) return;
-
-    getOrCreateReportingTimeZone(user.uid)
-      .then(setReportingTimeZone)
-      .catch(() => setReportingTimeZone(getDeviceReportingTimeZone()));
-  }, [user]);
 
   // Subscribe to projects
   useEffect(() => {
@@ -92,12 +77,11 @@ export function useTimeTracking() {
         userId: user.uid,
         startTime: new Date(),
         isActive: true,
-        reportingTimeZone,
       };
 
       await createTimeEntry(newTimeEntry);
     },
-    [reportingTimeZone, user],
+    [user],
   );
 
   const stopTracking = useCallback(async () => {
@@ -160,13 +144,12 @@ export function useTimeTracking() {
         startTime,
         endTime,
         isActive: false,
-        reportingTimeZone,
         ...(trimmedDescription ? { description: trimmedDescription } : {}),
       };
 
       await createTimeEntry(newTimeEntry);
     },
-    [reportingTimeZone, user],
+    [user],
   );
 
   return {

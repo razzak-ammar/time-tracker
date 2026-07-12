@@ -18,17 +18,13 @@ The worker uses a transaction and the private `aggregateEvents/{eventId}`
 ledger to make delivery retries idempotent. Aggregate documents are readable by
 their owner and cannot be written by a client under `firestore.rules`.
 
-Each user now has a reporting timezone at
-`users/{uid}/settings/reporting.reportingTimeZone`. New web entries store that
-IANA timezone directly, and the worker uses it to split durations at that
-user's local midnight. This handles daylight-saving transitions correctly.
-Clients can create this preference once; changing it is an Admin/backfill
-operation so historic aggregate buckets cannot silently change meaning.
+All aggregate buckets use UTC. This is the universal, canonical reporting
+timezone: it has no daylight-saving transitions and produces identical results
+regardless of the client or user's location. Clients may convert UTC instants
+for display, but must not reinterpret aggregate day keys as local dates.
 
-Completed sessions are counted once on the reporting-timezone date of their end
-time; duration is split across every local calendar day it spans. Existing
-entries without a timezone use the user's reporting preference as a fallback,
-which is set during the required timezone-aware backfill.
+Completed sessions are counted once on the UTC date of their end time; duration
+is split across every UTC calendar day it spans.
 
 The historical backfill command is implemented at `functions/src/backfill.ts`.
 It rebuilds one user's aggregate documents from their existing `timeEntries`.
@@ -193,7 +189,7 @@ As a separate improvement, add backend validation/enforcement for:
 
 1. **Measure first.** Enable Firebase usage/budget alerts and inspect Firestore read counts by screen. Instrument listener creation in development to verify the duplicate-listener fix.
 2. **Deploy the implemented worker and rules.** From the repository root, run `npm --prefix functions ci` followed by `firebase deploy --only functions:aggregateTimeEntry,firestore:rules`. The checked-in Functions predeploy hook compiles TypeScript before upload. The worker must be deployed before any client consumes aggregates.
-3. **Backfill historical entries.** Authenticate local Application Default Credentials with `gcloud auth application-default login`, then run `npm --prefix functions run backfill -- --uid <Firebase Auth UID> --timezone <IANA timezone>`, for example `America/New_York`. This saves the user's reporting preference, rebuilds their aggregate documents, and stamps them with `backfilledAt` and `schemaVersion`. Do not run it concurrently with that user's entry writes.
+3. **Backfill historical entries.** Authenticate local Application Default Credentials with `gcloud auth application-default login`, then run `npm --prefix functions run backfill -- --uid <Firebase Auth UID>` for a single user or `npm --prefix functions run backfill -- --all` for every user represented in `timeEntries`. The script defaults to this repository's Firebase project (`time-tracker-3b6df`), rebuilds aggregate documents in UTC, and stamps them with `backfilledAt` and `schemaVersion`. It refuses an empty per-user result by default so an incorrect UID cannot erase summaries. Do not run it concurrently with entry writes; pause the app for a global backfill.
 4. **Stop duplicate listeners.** Introduce the root data provider before switching screens; this yields an immediate read reduction with low data risk.
 5. **Dual-read validation.** For a limited set of users, compute dashboard values both ways and log/report mismatches. Keep the all-entry calculation only as a temporary verification path.
 6. **Switch the dashboard and pinned cards.** Read summaries, use bounded history/calendar queries, and remove the full-history listener from ordinary screens.
