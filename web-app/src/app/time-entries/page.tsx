@@ -3,6 +3,7 @@
 import { useTimeEntries, useTimeTracking } from "@/hooks/useTimeTracking";
 import { TimeEntryListItem } from "@/components/time-entries/TimeEntryListItem";
 import { TimeBreakdownChart } from "@/components/time-entries/TimeBreakdownChart";
+import { TimeEntriesCalendarSidebar } from "@/components/time-entries/TimeEntriesCalendarSidebar";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -14,7 +15,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { Search, Calendar } from "lucide-react";
 import { useState, useMemo } from "react";
-import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from "date-fns";
+import {
+  endOfDay,
+  endOfMonth,
+  endOfWeek,
+  format,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
+  subDays,
+} from "date-fns";
 
 export default function TimeEntriesPage() {
   const { projects } = useTimeTracking();
@@ -22,6 +32,7 @@ export default function TimeEntriesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProject, setSelectedProject] = useState<string>("all");
   const [timeFilter, setTimeFilter] = useState<string>("past-7-days");
+  const [selectedDate, setSelectedDate] = useState<Date>();
 
   // Create a map of projects for quick lookup
   const projectMap = useMemo(() => {
@@ -52,9 +63,15 @@ export default function TimeEntriesPage() {
       );
     }
 
-    // Filter by time period (tabs)
+    // A calendar date takes precedence over the broader time-period presets.
     const now = new Date();
-    switch (timeFilter) {
+    if (selectedDate) {
+      filtered = filtered.filter(
+        (entry) =>
+          entry.startTime >= startOfDay(selectedDate) &&
+          entry.startTime <= endOfDay(selectedDate),
+      );
+    } else switch (timeFilter) {
       case "past-7-days":
         filtered = filtered.filter((entry) => {
           const entryDate = entry.startTime;
@@ -81,7 +98,14 @@ export default function TimeEntriesPage() {
     return filtered.sort(
       (a, b) => b.startTime.getTime() - a.startTime.getTime(),
     );
-  }, [timeEntries, searchTerm, selectedProject, timeFilter, projectMap]);
+  }, [
+    timeEntries,
+    searchTerm,
+    selectedProject,
+    timeFilter,
+    selectedDate,
+    projectMap,
+  ]);
 
   // Calculate total time for filtered entries (include active entries)
   const totalTime = useMemo(() => {
@@ -102,18 +126,45 @@ export default function TimeEntriesPage() {
   const hasActiveFilters =
     searchTerm || selectedProject !== "all" || timeFilter !== "all";
 
+  const selectTimeFilter = (filter: string) => {
+    setSelectedDate(undefined);
+    setTimeFilter(filter);
+  };
+
+  const selectCalendarDate = (date?: Date) => {
+    setSelectedDate(date);
+    if (date) setTimeFilter("all");
+  };
+
   return (
-    <div className="container mx-auto px-4 py-6 space-y-6">
+    <div className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col md:flex-row">
+      <TimeEntriesCalendarSidebar
+        entries={timeEntries}
+        projects={projects}
+        selectedDate={selectedDate}
+        onSelectDate={selectCalendarDate}
+      />
+
+      <div className="min-w-0 flex-1 space-y-6 px-4 py-6 lg:px-6">
       {/* Tabs and Filters */}
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {selectedDate && (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="h-7 px-3 text-xs font-medium ring-1 ring-primary/30"
+              >
+                {format(selectedDate, "MMM d")}
+              </Button>
+            )}
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => setTimeFilter("past-7-days")}
+              onClick={() => selectTimeFilter("past-7-days")}
               className={`h-7 px-3 text-xs font-medium ${
-                timeFilter === "past-7-days"
+                !selectedDate && timeFilter === "past-7-days"
                   ? "bg-secondary/80 ring-1 ring-primary/30"
                   : ""
               }`}
@@ -123,9 +174,9 @@ export default function TimeEntriesPage() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => setTimeFilter("this-week")}
+              onClick={() => selectTimeFilter("this-week")}
               className={`h-7 px-3 text-xs font-medium ${
-                timeFilter === "this-week"
+                !selectedDate && timeFilter === "this-week"
                   ? "bg-secondary/80 ring-1 ring-primary/30"
                   : ""
               }`}
@@ -135,9 +186,9 @@ export default function TimeEntriesPage() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => setTimeFilter("this-month")}
+              onClick={() => selectTimeFilter("this-month")}
               className={`h-7 px-3 text-xs font-medium ${
-                timeFilter === "this-month"
+                !selectedDate && timeFilter === "this-month"
                   ? "bg-secondary/80 ring-1 ring-primary/30"
                   : ""
               }`}
@@ -147,9 +198,9 @@ export default function TimeEntriesPage() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => setTimeFilter("all")}
+              onClick={() => selectTimeFilter("all")}
               className={`h-7 px-3 text-xs font-medium ${
-                timeFilter === "all"
+                !selectedDate && timeFilter === "all"
                   ? "bg-secondary/80 ring-1 ring-primary/30"
                   : ""
               }`}
@@ -218,6 +269,7 @@ export default function TimeEntriesPage() {
           })}
         </div>
       )}
+      </div>
     </div>
   );
 }
