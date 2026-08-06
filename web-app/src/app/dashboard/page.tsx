@@ -7,9 +7,9 @@ import { FullScreenTimer } from "@/components/dashboard/FullScreenTimer";
 import { ManualEntryDialog } from "@/components/time-entries/ManualEntryForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Clock, Calendar, TrendingUp, ChartBar } from "lucide-react";
-import { format, startOfWeek, endOfWeek, eachDayOfInterval } from "date-fns";
 import { useState, useEffect, useRef } from "react";
 import { ProjectPageHeader } from "@/components/projects/ProjectPageHeader";
+import { useDashboardSummaries } from "@/hooks/useReportingSummaries";
 
 export default function DashboardPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -20,8 +20,12 @@ export default function DashboardPage() {
   const [fullScreenTimerOpen, setFullScreenTimerOpen] = useState(false);
   const hadActiveEntryRef = useRef(false);
 
-  const { projects, timeEntries, activeTimeEntry, elapsedTime } =
-    useTimeTracking();
+  const { projects, activeTimeEntry, elapsedTime } = useTimeTracking();
+  const {
+    completedSessionCount,
+    weekDurationSeconds,
+    weekSessionCount,
+  } = useDashboardSummaries();
 
   // Auto-open full-screen timer when a timer becomes active (e.g. user just started one)
   useEffect(() => {
@@ -39,34 +43,8 @@ export default function DashboardPage() {
     ? projects.find((project) => project.id === activeTimeEntry.projectId)
     : null;
 
-  // Calculate some basic stats
-  const thisWeek = eachDayOfInterval({
-    start: startOfWeek(new Date()),
-    end: endOfWeek(new Date()),
-  });
-
-  const thisWeekEntries = timeEntries.filter(
-    (entry) =>
-      entry.endTime &&
-      thisWeek.some(
-        (day) =>
-          format(entry.endTime!, "yyyy-MM-dd") === format(day, "yyyy-MM-dd"),
-      ),
-  );
-
-  const totalMinutesThisWeek = thisWeekEntries.reduce((total, entry) => {
-    if (entry.endTime) {
-      return (
-        total +
-        Math.round(
-          (entry.endTime.getTime() - entry.startTime.getTime()) / (1000 * 60),
-        )
-      );
-    }
-    return total;
-  }, 0);
-
-  const formatDuration = (minutes: number) => {
+  const formatDuration = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
@@ -102,10 +80,10 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatDuration(totalMinutesThisWeek)}
+              {formatDuration(weekDurationSeconds)}
             </div>
             <p className="text-xs text-muted-foreground">
-              {thisWeekEntries.length} sessions
+              {weekSessionCount} sessions
             </p>
           </CardContent>
         </Card>
@@ -118,9 +96,11 @@ export default function DashboardPage() {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{timeEntries.length}</div>
+            <div className="text-2xl font-bold">
+              {completedSessionCount + (activeTimeEntry ? 1 : 0)}
+            </div>
             <p className="text-xs text-muted-foreground">
-              {timeEntries.filter((entry) => !entry.endTime).length} active
+              {activeTimeEntry ? 1 : 0} active
             </p>
           </CardContent>
         </Card>

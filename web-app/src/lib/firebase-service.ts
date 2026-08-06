@@ -7,12 +7,21 @@ import {
   getDocs,
   query,
   where,
+  orderBy,
+  limit,
+  documentId,
   serverTimestamp,
   onSnapshot,
   Timestamp,
 } from "firebase/firestore";
 import { db } from "./firebase";
-import { Project, TimeEntry } from "@/types";
+import {
+  DailySummary,
+  OverviewSummary,
+  Project,
+  ProjectSummary,
+  TimeEntry,
+} from "@/types";
 
 // Projects
 export const createProject = async (
@@ -204,3 +213,68 @@ export const subscribeToActiveTimeEntry = (
     callback(timeEntry);
   });
 };
+
+export const subscribeToMostRecentTimeEntry = (
+  userId: string,
+  callback: (timeEntry: TimeEntry | null) => void,
+) => {
+  const q = query(
+    collection(db, "timeEntries"),
+    where("userId", "==", userId),
+    orderBy("startTime", "desc"),
+    limit(1),
+  );
+  return onSnapshot(q, (querySnapshot) => {
+    if (querySnapshot.empty) {
+      callback(null);
+      return;
+    }
+
+    const snapshot = querySnapshot.docs[0];
+    callback({
+      id: snapshot.id,
+      ...snapshot.data(),
+      startTime: snapshot.data().startTime?.toDate() || new Date(),
+      endTime: snapshot.data().endTime?.toDate() || undefined,
+      createdAt: snapshot.data().createdAt?.toDate() || new Date(),
+      updatedAt: snapshot.data().updatedAt?.toDate() || new Date(),
+    } as TimeEntry);
+  });
+};
+
+export const subscribeToOverviewSummary = (
+  userId: string,
+  callback: (summary: OverviewSummary | null) => void,
+) => onSnapshot(doc(db, "users", userId, "summaries", "overview"), (snapshot) => {
+  if (!snapshot.exists()) {
+    callback(null);
+    return;
+  }
+  callback(snapshot.data() as OverviewSummary);
+});
+
+export const subscribeToDailySummaries = (
+  userId: string,
+  dateKeys: string[],
+  callback: (summaries: DailySummary[]) => void,
+) => {
+  if (dateKeys.length === 0) {
+    callback([]);
+    return () => undefined;
+  }
+
+  const q = query(
+    collection(db, "users", userId, "dailySummaries"),
+    where(documentId(), "in", dateKeys),
+  );
+  return onSnapshot(q, (querySnapshot) => {
+    callback(querySnapshot.docs.map((snapshot) => snapshot.data() as DailySummary));
+  });
+};
+
+export const subscribeToProjectSummaries = (
+  userId: string,
+  callback: (summaries: ProjectSummary[]) => void,
+) => onSnapshot(collection(db, "users", userId, "projectSummaries"), (querySnapshot) => {
+  callback(querySnapshot.docs.map((snapshot) => snapshot.data() as ProjectSummary));
+});

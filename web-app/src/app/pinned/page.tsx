@@ -7,12 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Plus, Settings } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
+import { useProjectSummaries } from "@/hooks/useReportingSummaries";
 
 export default function PinnedPage() {
   const { getPinnedProjects } = useTimeTracking();
   const [showAddForm, setShowAddForm] = useState(false);
 
   const pinnedProjects = getPinnedProjects();
+  const projectSummaries = useProjectSummaries();
 
   return (
     <div className="w-full max-w-none p-4 md:p-8 space-y-6 overflow-x-hidden">
@@ -53,7 +55,13 @@ export default function PinnedPage() {
       {pinnedProjects.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {pinnedProjects.map((project) => (
-            <PinnedProjectCard key={project.id} project={project} />
+            <PinnedProjectCard
+              key={project.id}
+              project={project}
+              completedDurationSeconds={
+                projectSummaries.get(project.id)?.completedDurationSeconds ?? 0
+              }
+            />
           ))}
         </div>
       ) : (

@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { TopBar } from "@/components/layout/TopBar";
 import { Loader2 } from "lucide-react";
+import { TimeTrackingProvider } from "@/contexts/TimeTrackingContext";
 
 interface ClientChromeProps {
   children: React.ReactNode;
@@ -50,7 +51,7 @@ export function ClientChrome({ children }: ClientChromeProps) {
       <main
         className={`flex-1 min-h-0 flex flex-col ${isCalendar ? "overflow-hidden" : "overflow-auto"}`}
       >
-        {children}
+        <TimeTrackingProvider>{children}</TimeTrackingProvider>
       </main>
     </div>
   );

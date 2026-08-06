@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useTimeTracking } from "@/hooks/useTimeTracking";
+import { useTimeEntries, useTimeTracking } from "@/hooks/useTimeTracking";
 import { WeekHeader, WeekDayMeta } from "@/components/calendar/WeekHeader";
 import {
   DailyTimeline,
@@ -29,7 +29,8 @@ export type CalendarViewMode = "day" | "week" | "custom";
 const CUSTOM_DAY_OPTIONS = [3, 5, 7, 10, 14] as const;
 
 export default function CalendarPage() {
-  const { timeEntries, projects, updateTimeEntryFields } = useTimeTracking();
+  const { projects, updateTimeEntryFields } = useTimeTracking();
+  const timeEntries = useTimeEntries();
   const [focusedDate, setFocusedDate] = useState(new Date());
   const [hourHeight, setHourHeight] = useState(60);
   const [viewMode, setViewMode] = useState<CalendarViewMode>("day");
@@ -249,4 +250,3 @@ export default function CalendarPage() {
     </div>
   );
 }
-

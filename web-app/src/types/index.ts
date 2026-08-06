@@ -31,3 +31,21 @@ export interface UserProfile {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export interface OverviewSummary {
+  completedSessionCount: number;
+  completedDurationSeconds: number;
+  schemaVersion: number;
+}
+
+export interface DailySummary {
+  dateKey: string;
+  completedSessionCount: number;
+  durationSeconds: number;
+}
+
+export interface ProjectSummary {
+  projectId: string;
+  completedSessionCount: number;
+  completedDurationSeconds: number;
+}

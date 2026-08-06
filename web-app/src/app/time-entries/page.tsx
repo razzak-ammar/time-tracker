@@ -1,6 +1,6 @@
 "use client";
 
-import { useTimeTracking } from "@/hooks/useTimeTracking";
+import { useTimeEntries, useTimeTracking } from "@/hooks/useTimeTracking";
 import { TimeEntryListItem } from "@/components/time-entries/TimeEntryListItem";
 import { TimeBreakdownChart } from "@/components/time-entries/TimeBreakdownChart";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,8 @@ import { useState, useMemo } from "react";
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from "date-fns";
 
 export default function TimeEntriesPage() {
-  const { timeEntries, projects } = useTimeTracking();
+  const { projects } = useTimeTracking();
+  const timeEntries = useTimeEntries();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProject, setSelectedProject] = useState<string>("all");
   const [timeFilter, setTimeFilter] = useState<string>("past-7-days");

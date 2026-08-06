@@ -18,27 +18,22 @@ import { formatDuration } from "@/lib/utils";
 
 interface PinnedProjectCardProps {
   project: Project;
+  completedDurationSeconds: number;
 }
 
-export function PinnedProjectCard({ project }: PinnedProjectCardProps) {
+export function PinnedProjectCard({
+  project,
+  completedDurationSeconds,
+}: PinnedProjectCardProps) {
   const {
     activeTimeEntry,
     startTracking,
     stopTracking,
-    getTimeEntriesForProject,
   } = useTimeTracking();
   const [showSwitchModal, setShowSwitchModal] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const isActive = activeTimeEntry?.projectId === project.id;
-  const timeEntries = getTimeEntriesForProject(project.id);
-  const totalTime = timeEntries.reduce((total, entry) => {
-    const duration = entry.endTime
-      ? entry.endTime.getTime() - entry.startTime.getTime()
-      : Date.now() - entry.startTime.getTime();
-    return total + duration;
-  }, 0);
-
   const handleToggleTracking = async () => {
     if (loading) return;
     if (isActive) {
@@ -124,7 +119,7 @@ export function PinnedProjectCard({ project }: PinnedProjectCardProps) {
             </h3>
             <div className="flex items-center text-white/60 text-xs md:text-sm">
               <Clock className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
-              <span>Total: {formatDuration(totalTime)}</span>
+              <span>Total: {formatDuration(completedDurationSeconds * 1000)}</span>
             </div>
           </div>
 
