@@ -75,7 +75,7 @@ service cloud.firestore {
         // description is optional
         && (!('description' in request.resource.data) || request.resource.data.description is string)
         // endTime is optional (null when timer is active)
-        && (!('endTime' in request.resource.data) || request.resource.data.endTime == null || isValidTimestamp(request.resource.data.endTime))
+        && (!('endTime' in request.resource.data) || request.resource.data.endTime == null || isValidTimestamp(request.resource.data.endTime));
       
       // Users can update their own time entries (cannot change userId)
       allow update: if isOwner(resource.data.userId)
@@ -89,7 +89,7 @@ service cloud.firestore {
         // description is optional
         && (!('description' in request.resource.data) || request.resource.data.description is string)
         // endTime is optional (null when timer is active)
-        && (!('endTime' in request.resource.data) || request.resource.data.endTime == null || isValidTimestamp(request.resource.data.endTime))
+        && (!('endTime' in request.resource.data) || request.resource.data.endTime == null || isValidTimestamp(request.resource.data.endTime));
       
       // Users can delete their own time entries
       allow delete: if isOwner(resource.data.userId);
