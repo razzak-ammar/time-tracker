@@ -1,15 +1,12 @@
 "use client";
 
-import { Project } from "@/types";
-import { Card, CardContent } from "@/components/ui/card";
+import { Project, ProjectSummary } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Play,
   Square,
   Clock,
   Pin,
-  PinOff,
   MoreVertical,
   Pencil,
   Trash2,
@@ -36,12 +33,21 @@ interface ProjectCardProps {
   project: Project;
   isActive?: boolean;
   elapsedTime?: string;
+  projectSummary?: ProjectSummary;
 }
+
+const formatDuration = (seconds: number) => {
+  const minutes = Math.round(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return hours > 0 ? `${hours}h ${remainder}m` : `${remainder}m`;
+};
 
 export function ProjectCard({
   project,
   isActive = false,
   elapsedTime,
+  projectSummary,
 }: ProjectCardProps) {
   const { startTracking, stopTracking, activeTimeEntry } = useTimeTracking();
   const [openEdit, setOpenEdit] = useState(false);
@@ -80,145 +86,155 @@ export function ProjectCard({
   };
 
   const handleDelete = async () => {
+    if (!window.confirm(`Move “${project.name}” and its time entries to Recently Deleted? You can restore them for 30 days.`)) return;
     await deleteProject(project.id);
   };
 
-  const getGradientStyle = (color: string) => {
-    const colorMap: { [key: string]: string } = {
-      "#ef4444": "from-red-500/20 to-pink-500/20",
-      "#f97316": "from-orange-500/20 to-red-500/20",
-      "#eab308": "from-yellow-500/20 to-orange-500/20",
-      "#22c55e": "from-green-500/20 to-emerald-500/20",
-      "#06b6d4": "from-cyan-500/20 to-blue-500/20",
-      "#3b82f6": "from-blue-500/20 to-indigo-500/20",
-      "#8b5cf6": "from-violet-500/20 to-purple-500/20",
-      "#ec4899": "from-pink-500/20 to-rose-500/20",
-      "#84cc16": "from-lime-500/20 to-green-500/20",
-      "#14b8a6": "from-teal-500/20 to-cyan-500/20",
-      "#f59e0b": "from-amber-500/20 to-orange-500/20",
-      "#6366f1": "from-indigo-500/20 to-purple-500/20",
-      "#424242": "from-gray-500/20 to-slate-600/20",
-      "#64748b": "from-slate-500/20 to-slate-600/20",
-      "#0ea5e9": "from-sky-500/20 to-blue-500/20",
-      "#a855f7": "from-purple-500/20 to-violet-500/20",
-      "#d946ef": "from-fuchsia-500/20 to-pink-500/20",
-      "#78716c": "from-stone-500/20 to-zinc-500/20",
-    };
-    return colorMap[color] || "from-violet-500/20 to-purple-500/20";
-  };
+  const totalDuration = formatDuration(
+    projectSummary?.completedDurationSeconds ?? 0,
+  );
+  const sessionCount = projectSummary?.completedSessionCount ?? 0;
 
-  return (
-    <Card
+  const optionsMenu = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 rounded-full p-0 text-muted-foreground hover:bg-background/80 hover:text-foreground md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
+          title="Project options"
+        >
+          <MoreVertical className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => setOpenEdit(true)}>
+          <Pencil className="mr-2 h-4 w-4" /> Edit
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleTogglePin}>
+          <Pin className="mr-2 h-4 w-4" />
+          {project.isPinned ? "Unpin" : "Pin"}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleDelete} className="text-red-600">
+          <Trash2 className="mr-2 h-4 w-4" /> Move to Recently Deleted
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
+  const trackingButton = (
+    <Button
+      variant={isActive ? "destructive" : "default"}
+      size="sm"
+      onClick={handleToggleTracking}
+      disabled={loading}
       className={cn(
-        "w-full min-h-[100px] md:min-h-[120px] group relative overflow-hidden transition-all duration-300 hover:shadow-lg border border-gray-200/20 bg-gradient-to-br from-gray-50/50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-900/50 backdrop-blur-sm rounded-xl",
-        isActive &&
-        "ring-2 [--tw-ring-color:hsl(var(--ring))] shadow-lg bg-gradient-to-br from-emerald-50/50 to-cyan-50/50 dark:from-emerald-900/20 dark:to-cyan-900/20",
+        "h-9 rounded-full px-3 text-xs font-medium shadow-none transition-[background-color,color,transform] duration-200 active:scale-95 md:px-4",
+        project.isPinned && "w-full justify-center rounded-xl",
+        isActive
+          ? "bg-foreground text-background hover:bg-foreground/85"
+          : "bg-emerald-500 text-white hover:bg-emerald-400",
       )}
     >
-      <div
-        className={`absolute inset-0 bg-gradient-to-br ${getGradientStyle(
-          project.color,
-        )} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}
-      />
+      {isActive ? (
+        <>
+          <Square className="mr-1.5 h-3 w-3 fill-current" /> Stop
+        </>
+      ) : (
+        <>
+          <Play className="mr-1.5 h-3 w-3 fill-current" /> Start
+        </>
+      )}
+    </Button>
+  );
+
+  return (
+    <article
+      className={cn(
+        "group relative w-full overflow-hidden rounded-2xl border border-border/50 bg-transparent transition-[background-color,border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-border hover:bg-muted/35",
+        project.isPinned &&
+          "flex aspect-square flex-col border-foreground/15 bg-muted/25 p-5 hover:border-foreground/25 hover:bg-muted/40",
+        !project.isPinned &&
+          "flex min-h-24 items-center gap-3 p-3 md:min-h-28 md:p-4",
+        isActive &&
+          "border-emerald-500/35 bg-emerald-500/[0.06] hover:border-emerald-500/50 hover:bg-emerald-500/[0.08]",
+      )}
+    >
       {isActive && (
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-400 to-cyan-400" />
+        <div className="absolute inset-y-4 left-0 w-0.5 rounded-full bg-emerald-400" />
       )}
 
-      <CardContent className="relative p-4 md:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3 md:gap-4">
-          <div className="flex items-center space-x-2 md:space-x-3 flex-1">
-            <div
-              className="w-4 h-4 md:w-5 md:h-5 rounded-full flex-shrink-0 shadow-md"
+      {project.isPinned ? (
+        <>
+          <div className="flex items-start gap-3">
+            <span
+              className="mt-1 size-2.5 shrink-0 rounded-full ring-4 ring-black/[0.03] dark:ring-white/[0.04]"
               style={{ backgroundColor: project.color }}
             />
-            <div className="flex-1 min-w-0 space-y-1">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-base md:text-lg truncate text-gray-900 dark:text-white">
-                  {project.name}
-                </h3>
-                {/* only show on hover */}
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 md:h-10 md:w-10 p-0"
-                      >
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setOpenEdit(true)}>
-                        <Pencil className="h-4 w-4 mr-2" /> Edit Project
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={handleDelete}
-                        className="text-red-600"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" /> Delete Project
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
+            <h3 className="min-w-0 flex-1 truncate text-base font-medium">
+              {project.name}
+            </h3>
+            {optionsMenu}
+          </div>
+
+          <div className="mt-auto pt-5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Total tracked
+            </p>
+            <p className="mt-1 text-3xl font-semibold tracking-[-0.04em] tabular-nums">
+              {totalDuration}
+            </p>
+            <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+              <span>
+                {sessionCount} {sessionCount === 1 ? "session" : "sessions"}
+              </span>
               {isActive && elapsedTime && (
-                <div className="flex items-center space-x-1 text-xs md:text-sm text-emerald-600 dark:text-emerald-400 font-medium">
-                  <Clock className="w-3 h-3 md:w-4 md:h-4" />
-                  <span className="whitespace-nowrap">{elapsedTime}</span>
-                </div>
+                <span className="flex items-center gap-1 font-medium tabular-nums text-emerald-500">
+                  <Clock className="size-3" /> {elapsedTime}
+                </span>
               )}
             </div>
           </div>
 
-          <div className="flex items-center space-x-2 md:space-x-3 flex-shrink-0 mt-2 md:mt-0">
-            {project.isPinned && (
-              <Badge
-                variant="secondary"
-                className="text-xs md:text-sm bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-800"
-              >
-                Pinned
-              </Badge>
-            )}
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleTogglePin}
-              className="h-8 w-8 md:h-10 md:w-10 p-0 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-            >
-              {project.isPinned ? (
-                <PinOff className="h-4 w-4 md:h-5 md:w-5" />
-              ) : (
-                <Pin className="h-4 w-4 md:h-5 md:w-5" />
+          <div className="mt-5">{trackingButton}</div>
+        </>
+      ) : (
+        <>
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <span
+              className="size-2.5 shrink-0 rounded-full ring-4 ring-black/[0.03] dark:ring-white/[0.04]"
+              style={{ backgroundColor: project.color }}
+            />
+            <div className="min-w-0">
+              <h3 className="truncate text-sm font-medium md:text-base">
+                {project.name}
+              </h3>
+              {isActive && elapsedTime && (
+                <span className="mt-1 flex items-center gap-1 text-xs font-medium tabular-nums text-emerald-500">
+                  <Clock className="size-3" /> {elapsedTime}
+                </span>
               )}
-            </Button>
+              <p className="mt-1 text-[10px] tabular-nums text-muted-foreground sm:hidden">
+                {totalDuration}
+                <span className="mx-1 text-border">·</span>
+                {sessionCount} {sessionCount === 1 ? "session" : "sessions"}
+              </p>
+            </div>
           </div>
-          <Button
-            variant={isActive ? "destructive" : "default"}
-            size="sm"
-            onClick={handleToggleTracking}
-            className={cn(
-              "h-8 md:h-10 px-3 md:px-4 font-medium transition-all duration-200 text-xs md:text-sm w-full",
-              isActive
-                ? "bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white shadow-md"
-                : "bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white shadow-md",
-            )}
-          >
-            {isActive ? (
-              <>
-                <Square className="h-4 w-4 md:h-5 md:w-5 mr-1 md:mr-2" />
-                Stop
-              </>
-            ) : (
-              <>
-                <Play className="h-4 w-4 md:h-5 md:w-5 mr-1 md:mr-2" />
-                Start
-              </>
-            )}
-          </Button>
-        </div>
-      </CardContent>
+
+          <div className="hidden min-w-24 text-right sm:block">
+            <p className="text-sm font-semibold tabular-nums">{totalDuration}</p>
+            <p className="mt-0.5 text-[10px] text-muted-foreground">
+              {sessionCount} {sessionCount === 1 ? "session" : "sessions"}
+            </p>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-1">
+            {optionsMenu}
+            {trackingButton}
+          </div>
+        </>
+      )}
 
       <ProjectForm
         open={openEdit}
@@ -267,6 +283,6 @@ export function ProjectCard({
           </div>
         </DialogContent>
       </Dialog>
-    </Card>
+    </article>
   );
 }

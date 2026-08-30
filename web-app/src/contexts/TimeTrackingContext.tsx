@@ -86,8 +86,16 @@ export function TimeTrackingProvider({ children }: { children: React.ReactNode }
 
   const updateTimeEntryFields = useCallback(async (timeEntryId: string, updates: Partial<TimeEntry>) => {
     if (!user) return;
-    await updateTimeEntry(timeEntryId, updates);
-  }, [user]);
+    // Resizing or moving a running entry on the calendar supplies an end
+    // time. That action is a completion, so keep the persisted timer state
+    // consistent with the range used by reporting.
+    const completesActiveEntry =
+      activeTimeEntry?.id === timeEntryId && updates.endTime !== undefined;
+    await updateTimeEntry(timeEntryId, {
+      ...updates,
+      ...(completesActiveEntry ? { isActive: false } : {}),
+    });
+  }, [activeTimeEntry, user]);
 
   const createManualEntry = useCallback(async (projectId: string, startTime: Date, endTime: Date, description?: string) => {
     if (!user) return;

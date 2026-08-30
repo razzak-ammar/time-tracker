@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { format } from "date-fns";
+import { CalendarDays, Check, Clock3, LoaderCircle } from "lucide-react";
 import { useTimeTracking } from "@/hooks/useTimeTracking";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -12,7 +13,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
@@ -21,8 +27,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Check, Clock, CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 interface ManualEntryDialogProps {
@@ -43,7 +47,7 @@ export function ManualEntryDialog({
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [description, setDescription] = useState("");
-  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [selectedProjectId, setSelectedProjectId] = useState("");
   const [errors, setErrors] = useState<{
     startTime?: string;
     endTime?: string;
@@ -57,78 +61,69 @@ export function ManualEntryDialog({
   }, [mostRecentlyUsedProject, selectedProjectId]);
 
   useEffect(() => {
-    if (open) {
-      setSelectedDate(new Date());
-      setDescription("");
-    }
+    if (!open) return;
+    setSelectedDate(new Date());
+    setStartTime("");
+    setEndTime("");
+    setDescription("");
+    setErrors({});
   }, [open]);
 
   const duration = useMemo(() => {
     if (!startTime || !endTime) return null;
-    try {
-      const dateStr = format(selectedDate, "yyyy-MM-dd");
-      const start = new Date(`${dateStr}T${startTime}`);
-      const end = new Date(`${dateStr}T${endTime}`);
-      if (end <= start) return null;
 
-      const diffMs = end.getTime() - start.getTime();
-      const minutes = Math.round(diffMs / (1000 * 60));
-      const hours = Math.floor(minutes / 60);
-      const mins = minutes % 60;
-      return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
-    } catch {
-      return null;
-    }
+    const date = format(selectedDate, "yyyy-MM-dd");
+    const start = new Date(`${date}T${startTime}`);
+    const end = new Date(`${date}T${endTime}`);
+    if (end <= start) return null;
+
+    const minutes = Math.round((end.getTime() - start.getTime()) / 60000);
+    const hours = Math.floor(minutes / 60);
+    const remainder = minutes % 60;
+    return hours > 0 ? `${hours}h ${remainder}m` : `${remainder}m`;
   }, [startTime, endTime, selectedDate]);
 
   const validateForm = () => {
-    const newErrors: typeof errors = {};
+    const nextErrors: typeof errors = {};
 
-    if (!startTime) newErrors.startTime = "Start time is required";
+    if (!startTime) nextErrors.startTime = "Choose a start time";
     if (!endTime) {
-      newErrors.endTime = "End time is required";
+      nextErrors.endTime = "Choose an end time";
     } else if (startTime && endTime <= startTime) {
-      newErrors.endTime = "End time must be after start time";
+      nextErrors.endTime = "End time must be later";
     }
+    if (!selectedProjectId) nextErrors.project = "Choose a project";
 
-    if (!selectedProjectId) newErrors.project = "Please select a project";
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
   };
 
   const handleSubmit = async () => {
     if (!validateForm()) return;
+
     setLoading(true);
     try {
-      const dateStr = format(selectedDate, "yyyy-MM-dd");
-      const startDateTime = new Date(`${dateStr}T${startTime}`);
-      const endDateTime = new Date(`${dateStr}T${endTime}`);
+      const date = format(selectedDate, "yyyy-MM-dd");
       await createManualEntry(
         selectedProjectId,
-        startDateTime,
-        endDateTime,
-        description || undefined
+        new Date(`${date}T${startTime}`),
+        new Date(`${date}T${endTime}`),
+        description || undefined,
       );
-      setStartTime("");
-      setEndTime("");
-      setDescription("");
-      setErrors({});
       onEntryCreated?.();
       onOpenChange(false);
     } catch (error) {
       console.error("Error creating manual entry:", error);
-      setErrors({ project: "Failed to create entry. Please try again." });
+      setErrors({ project: "Couldn’t save this entry. Try again." });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape") {
-      onOpenChange(false);
-    } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === "Escape") onOpenChange(false);
+    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
       handleSubmit();
     }
   };
@@ -136,259 +131,222 @@ export function ManualEntryDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="p-0 overflow-hidden sm:max-w-2xl rounded-2xl border shadow-2xl data-[state=open]:slide-in-from-bottom-6 data-[state=closed]:slide-out-to-bottom-6 data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95 bg-card"
+        className="manual-entry-panel bottom-0 left-0 top-auto max-h-[calc(100dvh-1rem)] max-w-none translate-x-0 translate-y-0 gap-0 overflow-y-auto rounded-b-none rounded-t-[24px] border-x-0 border-b-0 bg-card p-0 text-foreground shadow-[0_-24px_80px_rgba(0,0,0,0.28)] sm:bottom-auto sm:left-[50%] sm:top-[50%] sm:max-h-[calc(100dvh-3rem)] sm:max-w-xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border [&_[data-slot=dialog-close]]:rounded-full [&_[data-slot=dialog-close]]:p-2 [&_[data-slot=dialog-close]]:text-muted-foreground [&_[data-slot=dialog-close]]:hover:bg-muted [&_[data-slot=dialog-close]]:hover:text-foreground"
         onKeyDown={handleKeyDown}
       >
-        <div className="p-6 sm:p-8 space-y-6">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="h-11 w-11 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center">
-                <Clock className="h-5 w-5" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold">Add manual entry</h2>
-                <p className="text-sm text-muted-foreground">
-                  Log time quickly without leaving your projects.
+        <div className="border-b border-border/60 px-5 pb-5 pt-6 sm:px-7 sm:pb-6 sm:pt-7">
+          <div className="mb-4 h-1 w-10 rounded-full bg-muted-foreground/20 sm:hidden" />
+          <div className="flex items-center gap-3">
+            <div className="flex size-9 items-center justify-center rounded-xl border border-emerald-500/15 bg-emerald-500/10 text-emerald-400">
+              <Clock3 className="size-[18px]" />
+            </div>
+            <DialogTitle className="text-xl font-semibold tracking-[-0.025em]">
+              New time entry
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              Add a manual entry to your time log.
+            </DialogDescription>
+          </div>
+        </div>
+
+        <div className="space-y-5 px-5 py-6 sm:px-7">
+          <div className="manual-entry-field grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-foreground/90">
+                Date
+              </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="group h-11 w-full justify-start rounded-lg border-border bg-background px-3 text-left text-sm font-normal text-foreground shadow-none transition-[background-color,border-color,transform] hover:-translate-y-0.5 hover:border-muted-foreground/40 hover:bg-muted/35"
+                  >
+                    <CalendarDays className="mr-2.5 size-4 text-muted-foreground transition-colors group-hover:text-emerald-400" />
+                    {format(selectedDate, "EEE, MMM d")}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="z-[70] w-auto rounded-2xl border-border bg-[hsl(var(--popover))] p-1 text-[hsl(var(--popover-foreground))] shadow-2xl"
+                  align="start"
+                >
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => date && setSelectedDate(date)}
+                    initialFocus
+                    className="rounded-xl"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-foreground/90">
+                Project
+              </Label>
+              <Select
+                value={selectedProjectId}
+                onValueChange={(value) => {
+                  setSelectedProjectId(value);
+                  setErrors((current) => ({ ...current, project: undefined }));
+                }}
+              >
+                <SelectTrigger
+                  className={cn(
+                    "h-11 w-full rounded-lg border-border bg-background px-3 text-sm font-normal text-foreground shadow-none transition-[background-color,border-color,transform] hover:-translate-y-0.5 hover:border-muted-foreground/40 hover:bg-muted/35 [&_svg]:text-muted-foreground",
+                    errors.project && "border-destructive/70",
+                  )}
+                >
+                  <SelectValue placeholder="Choose project" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border-border/70 shadow-xl">
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      <span
+                        className="size-2 rounded-full"
+                        style={{ backgroundColor: project.color }}
+                      />
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.project && (
+                <p className="manual-entry-error text-xs text-destructive">
+                  {errors.project}
                 </p>
-              </div>
+              )}
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                Date
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      data-empty={!selectedDate}
-                      className={cn(
-                        "h-10 w-full sm:w-44 justify-start text-left font-normal text-sm rounded-md",
-                        !selectedDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4 bg-primary text-primary-foreground" />
-                      {selectedDate ? (
-                        format(selectedDate, "PPP")
-                      ) : (
-                        <span>Pick a date</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent
-                    className="w-auto p-0 border bg-gray-700 shadow-md"
-                    align="start"
-                  >
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={(date) => date && setSelectedDate(date)}
-                      initialFocus
-                      className="!bg-popover rounded-md"
-                    />
-                  </PopoverContent>
-                </Popover>
-                <Badge
-                  variant="secondary"
-                  className="text-xs ml-auto hidden sm:inline-flex"
+          <div className="manual-entry-field space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium text-foreground/90">
+                Time range
+              </Label>
+              {duration && (
+                <span
+                  key={duration}
+                  className="manual-entry-duration rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold tabular-nums text-emerald-500"
                 >
-                  {format(selectedDate, "EEE, MMM d")}
-                </Badge>
-              </div>
+                  {duration}
+                </span>
+              )}
             </div>
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-[1.4fr_1fr]">
-              <div className="space-y-2">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                  Project
-                </p>
-                <Select
-                  value={selectedProjectId}
-                  onValueChange={setSelectedProjectId}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="start-time"
+                  className="text-xs text-muted-foreground"
                 >
-                  <SelectTrigger className="h-10 text-sm">
-                    <SelectValue placeholder="Choose a project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map((project) => (
-                      <SelectItem
-                        key={project.id}
-                        value={project.id}
-                        className="text-sm"
-                      >
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-2 h-2 rounded-full"
-                            style={{ backgroundColor: project.color }}
-                          />
-                          {project.name}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.project && (
-                  <p className="text-xs text-destructive mt-1 animate-in fade-in duration-200">
-                    {errors.project}
-                  </p>
-                )}
+                  Start time
+                </Label>
+                <div className="group/time relative">
+                  <Clock3 className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within/time:text-emerald-400" />
+                  <Input
+                    id="start-time"
+                    type="time"
+                    value={startTime}
+                    onChange={(event) => {
+                      setStartTime(event.target.value);
+                      setErrors((current) => ({
+                        ...current,
+                        startTime: undefined,
+                      }));
+                    }}
+                    aria-invalid={Boolean(errors.startTime)}
+                    className={cn(
+                      "manual-time-input h-11 w-full rounded-lg border-border bg-background pl-10 pr-3 text-sm font-normal tabular-nums text-foreground shadow-none transition-[border-color,box-shadow] focus-visible:border-emerald-500/60 focus-visible:ring-2 focus-visible:ring-emerald-500/15",
+                      errors.startTime && "border-destructive/70",
+                    )}
+                  />
+                </div>
               </div>
-
-              <div className="space-y-2">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                  Time range
-                </p>
-                <div className="flex items-center gap-2">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "h-10 flex-1 justify-start text-left font-normal text-sm",
-                          !startTime && "text-muted-foreground",
-                          errors.startTime && "border-destructive"
-                        )}
-                      >
-                        <Clock className="mr-2 h-4 w-4 shrink-0" />
-                        {startTime ? (
-                          format(new Date(`2000-01-01T${startTime}`), "p")
-                        ) : (
-                          <span>Start time</span>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <div className="p-3">
-                        <Input
-                          id="start-time"
-                          type="time"
-                          value={startTime}
-                          onChange={(e) => setStartTime(e.target.value)}
-                          className="h-10 text-sm"
-                          autoFocus
-                        />
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                  <span className="text-xs text-muted-foreground shrink-0">to</span>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "h-10 flex-1 justify-start text-left font-normal text-sm",
-                          !endTime && "text-muted-foreground",
-                          errors.endTime && "border-destructive"
-                        )}
-                      >
-                        <Clock className="mr-2 h-4 w-4 shrink-0" />
-                        {endTime ? (
-                          format(new Date(`2000-01-01T${endTime}`), "p")
-                        ) : (
-                          <span>End time</span>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <div className="p-3">
-                        <Input
-                          id="end-time"
-                          type="time"
-                          value={endTime}
-                          onChange={(e) => setEndTime(e.target.value)}
-                          className="h-10 text-sm"
-                        />
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="end-time"
+                  className="text-xs text-muted-foreground"
+                >
+                  End time
+                </Label>
+                <div className="group/time relative">
+                  <Clock3 className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within/time:text-emerald-400" />
+                  <Input
+                    id="end-time"
+                    type="time"
+                    value={endTime}
+                    onChange={(event) => {
+                      setEndTime(event.target.value);
+                      setErrors((current) => ({
+                        ...current,
+                        endTime: undefined,
+                      }));
+                    }}
+                    aria-invalid={Boolean(errors.endTime)}
+                    className={cn(
+                      "manual-time-input h-11 w-full rounded-lg border-border bg-background pl-10 pr-3 text-sm font-normal tabular-nums text-foreground shadow-none transition-[border-color,box-shadow] focus-visible:border-emerald-500/60 focus-visible:ring-2 focus-visible:ring-emerald-500/15",
+                      errors.endTime && "border-destructive/70",
+                    )}
+                  />
                 </div>
               </div>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description" className="text-xs uppercase tracking-wide text-muted-foreground font-normal">
-                Description{" "}
-                <span className="text-muted-foreground/70">(optional)</span>
-              </Label>
-              <Textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="What did you work on?"
-                className="min-h-[72px] resize-none text-sm"
-                rows={3}
-              />
-            </div>
-
             {(errors.startTime || errors.endTime) && (
-              <div className="animate-in fade-in duration-200">
-                {errors.startTime && (
-                  <p className="text-xs text-destructive mb-1">
-                    {errors.startTime}
-                  </p>
-                )}
-                {errors.endTime && (
-                  <p className="text-xs text-destructive">
-                    {errors.endTime}
-                  </p>
-                )}
-              </div>
+              <p className="manual-entry-error text-xs text-destructive">
+                {errors.startTime || errors.endTime}
+              </p>
             )}
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            {duration && (
-              <Badge variant="secondary" className="text-xs w-fit">
-                {duration}
-              </Badge>
-            )}
-            <div className="flex gap-2 sm:ml-auto w-full sm:w-auto">
-              <Button
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={loading}
-                size="sm"
-                className="h-9 px-4 text-xs w-full sm:w-auto"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmit}
-                disabled={
-                  loading || !startTime || !endTime || !selectedProjectId
-                }
-                size="sm"
-                className="h-9 px-4 text-xs w-full sm:w-auto"
-              >
-                {loading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1" />
-                    Save
-                  </>
-                ) : (
-                  <>
-                    <Check className="h-3 w-3 mr-1" />
-                    Save entry
-                  </>
-                )}
-              </Button>
-            </div>
+          <div className="manual-entry-field space-y-2">
+            <Label
+              htmlFor="description"
+              className="text-sm font-medium text-foreground/90"
+            >
+              Note
+              <span className="ml-1 text-xs font-normal text-muted-foreground">
+                Optional
+              </span>
+            </Label>
+            <Textarea
+              id="description"
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              placeholder="What did you work on?"
+              className="min-h-20 resize-none rounded-lg border-border bg-background px-3 py-3 text-sm text-foreground shadow-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus-visible:border-emerald-500/60 focus-visible:ring-2 focus-visible:ring-emerald-500/15"
+              rows={3}
+            />
           </div>
+        </div>
 
-          <div className="hidden sm:flex items-center justify-end text-xs text-muted-foreground">
-            <span>
-              <kbd className="px-1 py-0.5 bg-muted rounded text-xs">
-                ⌘+Enter
-              </kbd>{" "}
-              to save,{" "}
-              <kbd className="px-1 py-0.5 bg-muted rounded text-xs">
-                Esc
-              </kbd>{" "}
-              to cancel
-            </span>
+        <div className="flex items-center gap-3 border-t border-border/60 bg-muted/15 px-5 py-4 sm:px-7">
+          <span className="hidden text-[11px] text-muted-foreground sm:block">
+            <kbd className="rounded-md border border-border/70 bg-background px-1.5 py-0.5 font-mono">
+              ⌘↵
+            </kbd>{" "}
+            to save
+          </span>
+          <div className="ml-auto flex w-full gap-2 sm:w-auto">
+            <Button
+              variant="ghost"
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+              className="h-10 flex-1 rounded-full px-5 text-sm text-muted-foreground hover:text-foreground sm:flex-none"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={loading}
+              className="h-10 flex-1 rounded-full bg-emerald-500 px-5 text-sm font-semibold text-white shadow-none transition-[background-color,transform] hover:-translate-y-0.5 hover:bg-emerald-400 active:translate-y-0 sm:flex-none"
+            >
+              {loading ? (
+                <LoaderCircle className="mr-2 size-4 animate-spin" />
+              ) : (
+                <Check className="mr-2 size-4" />
+              )}
+              {loading ? "Saving" : "Save entry"}
+            </Button>
           </div>
         </div>
       </DialogContent>

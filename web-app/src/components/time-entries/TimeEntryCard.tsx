@@ -55,11 +55,25 @@ export function TimeEntryCard({
   };
 
   const handleSave = async () => {
+    const nextStartTime = new Date(startTime);
+    const nextEndTime = new Date(endTime);
+    if (
+      !startTime ||
+      !endTime ||
+      Number.isNaN(nextStartTime.getTime()) ||
+      Number.isNaN(nextEndTime.getTime()) ||
+      nextEndTime <= nextStartTime
+    ) {
+      window.alert("Enter an end time that is after the start time.");
+      return;
+    }
+
     setLoading(true);
     try {
       await updateTimeEntry(timeEntry.id, {
-        startTime: new Date(startTime),
-        endTime: endTime ? new Date(endTime) : undefined,
+        startTime: nextStartTime,
+        endTime: nextEndTime,
+        isActive: false,
         description: description.trim() || undefined,
       });
       onUpdate?.();
@@ -72,7 +86,7 @@ export function TimeEntryCard({
   };
 
   const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete this time entry?")) return;
+    if (!confirm("Move this time entry to Recently Deleted? You can restore it for 30 days.")) return;
 
     setLoading(true);
     try {
@@ -212,7 +226,7 @@ export function TimeEntryCard({
                 disabled={loading}
               >
                 <Trash2 className="h-4 w-4 mr-1" />
-                Delete
+                Move to Recently Deleted
               </Button>
 
               <div className="space-x-2">

@@ -9,6 +9,7 @@ import {
   Clock,
   Pin,
   Calendar,
+  ArchiveRestore,
   X,
   ChevronLeft,
   ChevronRight,
@@ -38,6 +39,12 @@ const navItems = [
     label: "Time Entries",
     icon: Clock,
     description: "View and manage all time entries",
+  },
+  {
+    href: "/recently-deleted",
+    label: "Recently Deleted",
+    icon: ArchiveRestore,
+    description: "Restore deleted projects and entries",
   },
 ];
 

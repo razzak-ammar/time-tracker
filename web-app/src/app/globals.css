@@ -161,6 +161,27 @@
   }
 }
 
+@keyframes project-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.project-enter {
+  animation: project-enter 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .project-enter {
+    animation: none;
+  }
+}
+
 /* Full-screen timer backgrounds */
 @keyframes wave-shift {
   0%,
@@ -294,6 +315,53 @@
   }
 }
 
+@keyframes date-preview {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes manual-entry-field {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes manual-entry-duration {
+  0% {
+    opacity: 0;
+    transform: scale(0.82) translateY(2px);
+  }
+  65% {
+    transform: scale(1.04) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes time-breakdown-grow {
+  from {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
 @layer utilities {
   .animate-calendar-month-next {
     animation: calendar-month-next 220ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -301,6 +369,38 @@
 
   .animate-calendar-month-previous {
     animation: calendar-month-previous 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .animate-date-preview {
+    animation: date-preview 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .manual-entry-panel[data-state="open"] .manual-entry-field {
+    animation: manual-entry-field 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .manual-entry-panel[data-state="open"] .manual-entry-field:nth-child(2) {
+    animation-delay: 55ms;
+  }
+
+  .manual-entry-panel[data-state="open"] .manual-entry-field:nth-child(3) {
+    animation-delay: 110ms;
+  }
+
+  .manual-entry-duration {
+    animation: manual-entry-duration 300ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .time-breakdown-segment {
+    animation: time-breakdown-grow 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .manual-entry-panel[data-state="open"] .manual-entry-field,
+  .manual-entry-duration,
+  .time-breakdown-segment {
+    animation: none;
   }
 }
 
@@ -393,4 +493,24 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 input[type="datetime-local"]::-webkit-inner-spin-button,
 input[type="datetime-local"]::-webkit-clear-button {
   display: none;
+}
+
+/* Keep native time pickers functional while the visible icon follows the app theme. */
+.manual-time-input {
+  color-scheme: light;
+  accent-color: #10b981;
+}
+
+.dark .manual-time-input {
+  color-scheme: dark;
+}
+
+.manual-time-input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0;
+}
+
+.manual-time-input::selection {
+  background: rgb(16 185 129 / 24%);
+  color: hsl(var(--foreground));
 }

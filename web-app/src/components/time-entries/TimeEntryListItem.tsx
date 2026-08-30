@@ -1,21 +1,33 @@
 "use client";
 
-import { TimeEntry, Project } from "@/types";
+import { useEffect, useState } from "react";
+import { format } from "date-fns";
+import {
+  CalendarDays,
+  ChevronDown,
+  Clock3,
+  LoaderCircle,
+  Trash2,
+} from "lucide-react";
+import type { Project, TimeEntry } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Clock, Trash2, Calendar, ChevronDown } from "lucide-react";
-import { format } from "date-fns";
-import { useEffect, useState } from "react";
 import { updateTimeEntry, deleteTimeEntry } from "@/lib/firebase-service";
+import { cn } from "@/lib/utils";
 
 interface TimeEntryListItemProps {
   timeEntry: TimeEntry;
   project: Project;
   onUpdate?: () => void;
 }
+
+const formatDuration = (minutes: number) => {
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return hours > 0 ? `${hours}h ${remainder}m` : `${remainder}m`;
+};
 
 export function TimeEntryListItem({
   timeEntry,
@@ -30,7 +42,9 @@ export function TimeEntryListItem({
     timeEntry.endTime ? format(timeEntry.endTime, "yyyy-MM-dd'T'HH:mm") : "",
   );
   const [description, setDescription] = useState(timeEntry.description || "");
-  const [loading, setLoading] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"save" | "delete" | null>(
+    null,
+  );
 
   useEffect(() => {
     setStartTime(format(timeEntry.startTime, "yyyy-MM-dd'T'HH:mm"));
@@ -40,27 +54,41 @@ export function TimeEntryListItem({
     setDescription(timeEntry.description || "");
   }, [timeEntry]);
 
-  const duration = timeEntry.endTime
-    ? Math.round(
-        (timeEntry.endTime.getTime() - timeEntry.startTime.getTime()) /
-          (1000 * 60),
-      )
-    : Math.round(
-        (new Date().getTime() - timeEntry.startTime.getTime()) / (1000 * 60),
-      );
+  const duration = Math.round(
+    ((timeEntry.endTime ?? new Date()).getTime() -
+      timeEntry.startTime.getTime()) /
+      60_000,
+  );
 
-  const formatDuration = (minutes: number) => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+  const resetEditor = () => {
+    setStartTime(format(timeEntry.startTime, "yyyy-MM-dd'T'HH:mm"));
+    setEndTime(
+      timeEntry.endTime ? format(timeEntry.endTime, "yyyy-MM-dd'T'HH:mm") : "",
+    );
+    setDescription(timeEntry.description || "");
+    setIsExpanded(false);
   };
 
   const handleSave = async () => {
-    setLoading(true);
+    const nextStartTime = new Date(startTime);
+    const nextEndTime = new Date(endTime);
+    if (
+      !startTime ||
+      !endTime ||
+      Number.isNaN(nextStartTime.getTime()) ||
+      Number.isNaN(nextEndTime.getTime()) ||
+      nextEndTime <= nextStartTime
+    ) {
+      window.alert("Enter an end time that is after the start time.");
+      return;
+    }
+
+    setPendingAction("save");
     try {
       await updateTimeEntry(timeEntry.id, {
-        startTime: new Date(startTime),
-        endTime: endTime ? new Date(endTime) : undefined,
+        startTime: nextStartTime,
+        endTime: nextEndTime,
+        isActive: false,
         description: description.trim() || undefined,
       });
       onUpdate?.();
@@ -68,178 +96,210 @@ export function TimeEntryListItem({
     } catch (error) {
       console.error("Error updating time entry:", error);
     } finally {
-      setLoading(false);
+      setPendingAction(null);
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete this time entry?")) return;
+    if (!confirm("Move this time entry to Recently Deleted? You can restore it for 30 days.")) return;
 
-    setLoading(true);
+    setPendingAction("delete");
     try {
       await deleteTimeEntry(timeEntry.id);
       onUpdate?.();
     } catch (error) {
       console.error("Error deleting time entry:", error);
     } finally {
-      setLoading(false);
+      setPendingAction(null);
     }
   };
 
   return (
-    <div
-      className={`rounded-xl border border-border/70 bg-card overflow-hidden transition-all duration-200 ${
-        isExpanded ? "shadow-md" : "shadow-sm"
-      }`}
+    <article
+      className={cn(
+        "group overflow-hidden transition-colors duration-200",
+        isExpanded ? "bg-muted/20" : "hover:bg-muted/25",
+        timeEntry.isActive && "bg-emerald-500/[0.04]",
+      )}
     >
       <div
         role="button"
         tabIndex={0}
-        onClick={() => setIsExpanded((prev) => !prev)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            setIsExpanded((prev) => !prev);
+        aria-expanded={isExpanded}
+        onClick={() => setIsExpanded((expanded) => !expanded)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            setIsExpanded((expanded) => !expanded);
           }
         }}
-        className={`group flex flex-wrap items-center gap-3 py-4 px-5 transition-colors cursor-pointer ${
-          timeEntry.isActive
-            ? "bg-emerald-500/5 dark:bg-emerald-500/10"
-            : "hover:bg-muted/40"
-        }`}
+        className="flex cursor-pointer items-center gap-3 px-2 py-4 outline-none transition-transform duration-200 group-hover:translate-x-0.5 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-3"
       >
-        <div
-          className="w-3 h-3 rounded-full flex-shrink-0"
+        <span
+          className={cn(
+            "size-2.5 shrink-0 rounded-full",
+            timeEntry.isActive && "animate-pulse ring-4 ring-emerald-500/10",
+          )}
           style={{ backgroundColor: project.color }}
         />
-        <span className="font-medium text-sm min-w-0 truncate max-w-[140px] sm:max-w-[200px]">
-          {project.name}
-        </span>
-        <Badge
-          variant={timeEntry.isActive ? "default" : "secondary"}
-          className="px-2 py-0 text-xs w-fit flex-shrink-0"
-        >
-          {timeEntry.isActive ? "Active" : "Done"}
-        </Badge>
-        <div className="inline-flex items-center gap-1 text-xs text-muted-foreground flex-shrink-0">
-          <Calendar className="h-3.5 w-3.5" />
-          <span>{format(timeEntry.startTime, "EEE, MMM d")}</span>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h3 className="truncate text-sm font-medium">{project.name}</h3>
+            {timeEntry.isActive && (
+              <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-500">
+                Active
+              </span>
+            )}
+          </div>
+          <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground md:hidden">
+            <span>{format(timeEntry.startTime, "MMM d")}</span>
+            <span className="size-0.5 rounded-full bg-muted-foreground/50" />
+            <span>
+              {format(timeEntry.startTime, "h:mm a")} –{" "}
+              {timeEntry.endTime ? format(timeEntry.endTime, "h:mm a") : "Now"}
+            </span>
+          </div>
+          {timeEntry.description && (
+            <p className="mt-1 truncate text-xs text-muted-foreground">
+              {timeEntry.description}
+            </p>
+          )}
         </div>
-        <div className="inline-flex items-center gap-1 text-xs text-muted-foreground flex-shrink-0">
-          <Clock className="h-3.5 w-3.5" />
-          <span>
-            {format(timeEntry.startTime, "h:mm a")} —{" "}
+
+        <div className="hidden min-w-[220px] items-center gap-4 text-xs text-muted-foreground md:flex">
+          <span className="flex items-center gap-1.5">
+            <CalendarDays className="size-3.5" />
+            {format(timeEntry.startTime, "EEE, MMM d")}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Clock3 className="size-3.5" />
+            {format(timeEntry.startTime, "h:mm a")} –{" "}
             {timeEntry.endTime ? format(timeEntry.endTime, "h:mm a") : "Now"}
           </span>
         </div>
-        <span className="font-medium text-sm text-foreground ml-auto flex-shrink-0">
+
+        <span className="min-w-10 text-right text-sm font-semibold tabular-nums">
           {formatDuration(duration)}
         </span>
         <ChevronDown
-          className={`h-4 w-4 text-muted-foreground transition-transform ${
-            isExpanded ? "rotate-180" : ""
-          }`}
+          className={cn(
+            "size-4 shrink-0 text-muted-foreground transition-transform duration-300",
+            isExpanded && "rotate-180",
+          )}
         />
-        {timeEntry.description && (
-          <p className="w-full text-sm text-muted-foreground line-clamp-2 mt-0.5 pl-6">
-            {timeEntry.description}
-          </p>
-        )}
       </div>
 
       <div
-        className={`grid transition-all duration-300 ease-out ${
-          isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-        }`}
+        className={cn(
+          "grid transition-[grid-template-rows,opacity] duration-300 ease-out",
+          isExpanded
+            ? "grid-rows-[1fr] opacity-100"
+            : "grid-rows-[0fr] opacity-0",
+        )}
       >
         <div className="overflow-hidden">
-          <div className="px-5 pb-5 pt-3 bg-muted/15 space-y-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-5 border-t border-border/50 px-3 pb-5 pt-4 sm:px-8">
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor={`startTime-${timeEntry.id}`}>Start Time</Label>
+                <Label
+                  htmlFor={`startTime-${timeEntry.id}`}
+                  className="text-xs font-medium"
+                >
+                  Start time
+                </Label>
                 <div className="relative">
                   <Input
                     id={`startTime-${timeEntry.id}`}
                     type="datetime-local"
                     value={startTime}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    className="pr-10"
+                    onClick={(event) => event.stopPropagation()}
+                    onChange={(event) => setStartTime(event.target.value)}
+                    className="h-10 rounded-lg border-border bg-background pr-10 shadow-none"
                   />
-                  <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none text-muted-foreground" />
+                  <CalendarDays className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor={`endTime-${timeEntry.id}`}>End Time</Label>
+                <Label
+                  htmlFor={`endTime-${timeEntry.id}`}
+                  className="text-xs font-medium"
+                >
+                  End time
+                </Label>
                 <div className="relative">
                   <Input
                     id={`endTime-${timeEntry.id}`}
                     type="datetime-local"
                     value={endTime}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    className="pr-10"
+                    onClick={(event) => event.stopPropagation()}
+                    onChange={(event) => setEndTime(event.target.value)}
+                    className="h-10 rounded-lg border-border bg-background pr-10 shadow-none"
                   />
-                  <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none text-muted-foreground" />
+                  <CalendarDays className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 </div>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor={`description-${timeEntry.id}`}>Description</Label>
+              <Label
+                htmlFor={`description-${timeEntry.id}`}
+                className="text-xs font-medium"
+              >
+                Note
+              </Label>
               <Textarea
                 id={`description-${timeEntry.id}`}
                 value={description}
-                onClick={(e) => e.stopPropagation()}
-                onChange={(e) => setDescription(e.target.value)}
+                onClick={(event) => event.stopPropagation()}
+                onChange={(event) => setDescription(event.target.value)}
                 placeholder="What did you work on?"
+                className="min-h-20 resize-none rounded-lg border-border bg-background shadow-none"
                 rows={3}
               />
             </div>
 
-            <div className="flex justify-between pt-2">
+            <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:items-center">
               <Button
-                variant="destructive"
+                variant="ghost"
                 size="sm"
                 onClick={handleDelete}
-                disabled={loading}
+                disabled={pendingAction !== null}
+                className="mr-auto text-destructive hover:bg-destructive/10 hover:text-destructive"
               >
-                <Trash2 className="h-4 w-4 mr-1" />
-                Delete
+                {pendingAction === "delete" ? (
+                  <LoaderCircle className="mr-1.5 size-4 animate-spin" />
+                ) : (
+                  <Trash2 className="mr-1.5 size-4" />
+                )}
+                {pendingAction === "delete" ? "Moving" : "Move to Recently Deleted"}
               </Button>
 
-              <div className="space-x-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setStartTime(format(timeEntry.startTime, "yyyy-MM-dd'T'HH:mm"));
-                    setEndTime(
-                      timeEntry.endTime
-                        ? format(timeEntry.endTime, "yyyy-MM-dd'T'HH:mm")
-                        : "",
-                    );
-                    setDescription(timeEntry.description || "");
-                    setIsExpanded(false);
-                  }}
-                  disabled={loading}
-                  size="sm"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSave}
-                  disabled={loading}
-                  className="bg-green-900 hover:bg-green-700 text-white"
-                  size="sm"
-                >
-                  Save Changes
-                </Button>
-              </div>
+              <Button
+                variant="ghost"
+                onClick={resetEditor}
+                disabled={pendingAction !== null}
+                size="sm"
+                className="text-muted-foreground"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSave}
+                disabled={pendingAction !== null}
+                className="bg-emerald-500 text-white shadow-none hover:bg-emerald-400"
+                size="sm"
+              >
+                {pendingAction === "save" && (
+                  <LoaderCircle className="mr-1.5 size-4 animate-spin" />
+                )}
+                {pendingAction === "save" ? "Saving" : "Save changes"}
+              </Button>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </article>
   );
 }

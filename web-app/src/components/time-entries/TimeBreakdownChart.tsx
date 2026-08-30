@@ -1,135 +1,106 @@
 "use client";
 
-import { TimeEntry, Project } from "@/types";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { useMemo } from "react";
-import { PieChart as PieChartIcon } from "lucide-react";
-
-const CHART_COLORS = [
-  "hsl(var(--chart-1))",
-  "hsl(var(--chart-2))",
-  "hsl(var(--chart-3))",
-  "hsl(var(--chart-4))",
-  "hsl(var(--chart-5))",
-];
+import type { Project, TimeEntry } from "@/types";
 
 interface TimeBreakdownChartProps {
   entries: TimeEntry[];
   projectMap: Map<string, Project>;
 }
 
-interface ChartDataItem {
+interface ProjectDuration {
+  id: string;
   name: string;
-  value: number;
+  minutes: number;
   color: string;
 }
 
-export function TimeBreakdownChart({ entries, projectMap }: TimeBreakdownChartProps) {
-  const chartData = useMemo(() => {
-    const byProject = new Map<string, { minutes: number; project: Project }>();
+const formatDuration = (minutes: number) => {
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return hours > 0 ? `${hours}h ${remainder}m` : `${remainder}m`;
+};
+
+export function TimeBreakdownChart({
+  entries,
+  projectMap,
+}: TimeBreakdownChartProps) {
+  const projectDurations = useMemo(() => {
+    const durations = new Map<string, ProjectDuration>();
     const now = new Date();
 
     for (const entry of entries) {
-      const durationMs = entry.endTime
-        ? entry.endTime.getTime() - entry.startTime.getTime()
-        : now.getTime() - entry.startTime.getTime();
-      const minutes = Math.round(durationMs / (1000 * 60));
-      if (minutes <= 0) continue;
-
+      const end = entry.endTime ?? now;
+      const minutes = Math.round(
+        (end.getTime() - entry.startTime.getTime()) / 60_000,
+      );
       const project = projectMap.get(entry.projectId);
-      if (!project) continue;
+      if (!project || minutes <= 0) continue;
 
-      const existing = byProject.get(entry.projectId);
+      const existing = durations.get(project.id);
       if (existing) {
         existing.minutes += minutes;
       } else {
-        byProject.set(entry.projectId, { minutes, project });
+        durations.set(project.id, {
+          id: project.id,
+          name: project.name,
+          minutes,
+          color: project.color,
+        });
       }
     }
 
-    return Array.from(byProject.entries()).map(([projectId, { minutes, project }], i) => ({
-      name: project.name,
-      value: minutes,
-      color: project.color || CHART_COLORS[i % CHART_COLORS.length],
-    })) as ChartDataItem[];
+    return Array.from(durations.values()).sort(
+      (a, b) => b.minutes - a.minutes,
+    );
   }, [entries, projectMap]);
 
-  const formatDuration = (minutes: number) => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
-  };
+  const totalMinutes = projectDurations.reduce(
+    (total, project) => total + project.minutes,
+    0,
+  );
 
-  if (chartData.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <PieChartIcon className="h-4 w-4" />
-            Time by Project
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-            <PieChartIcon className="h-12 w-12 mb-4 opacity-50" />
-            <p className="text-sm">No time entries in this period</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  if (totalMinutes === 0) return null;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <PieChartIcon className="h-4 w-4" />
-          Time by Project
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="h-[220px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={chartData}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={90}
-                paddingAngle={2}
-                dataKey="value"
-              >
-                {chartData.map((entry, index) => (
-                  <Cell key={entry.name} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip
-                formatter={(value: number | undefined) =>
-                  formatDuration(value ?? 0)
-                }
-                contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "var(--radius)",
-                  color: "hsl(var(--card-foreground))",
-                }}
-                labelStyle={{ color: "hsl(var(--card-foreground))" }}
-                itemStyle={{ color: "hsl(var(--card-foreground))" }}
-              />
-              <Legend
-                formatter={(value, entry) => {
-                  const item = chartData.find((d) => d.name === value);
-                  const total = chartData.reduce((sum, d) => sum + d.value, 0);
-                  const pct = item ? Math.round((item.value / total) * 100) : 0;
-                  return `${value} (${formatDuration((item?.value ?? 0))} · ${pct}%)`;
-                }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </CardContent>
-    </Card>
+    <section className="border-b border-border/60 pb-6">
+      <div className="mb-4 flex items-baseline justify-between gap-4">
+        <h2 className="text-sm font-semibold tracking-tight">Project split</h2>
+        <span className="text-xs tabular-nums text-muted-foreground">
+          {formatDuration(totalMinutes)} tracked
+        </span>
+      </div>
+
+      <div
+        className="flex h-3 w-full gap-0.5 rounded-full bg-muted/35"
+        aria-label="Time distribution by project"
+      >
+        {projectDurations.map((project, index) => {
+          const percentage = (project.minutes / totalMinutes) * 100;
+          return (
+            <button
+              key={project.id}
+              type="button"
+              className="time-breakdown-segment group/segment relative h-full min-w-1 origin-left rounded-sm outline-none transition-[transform,filter] duration-200 hover:z-20 hover:-translate-y-0.5 hover:brightness-110 focus-visible:z-20 focus-visible:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-foreground/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background first:rounded-l-full last:rounded-r-full"
+              style={{
+                width: `${percentage}%`,
+                backgroundColor: project.color,
+                animationDelay: `${index * 55}ms`,
+              }}
+              aria-label={`${project.name}: ${formatDuration(project.minutes)}, ${Math.round(percentage)} percent`}
+            >
+              <span className="pointer-events-none absolute bottom-[calc(100%+0.65rem)] left-1/2 z-30 w-max max-w-56 -translate-x-1/2 translate-y-1 rounded-lg border border-border bg-[hsl(var(--popover))] px-3 py-2 text-left opacity-0 shadow-xl transition-[opacity,transform] duration-150 group-hover/segment:translate-y-0 group-hover/segment:opacity-100 group-focus-visible/segment:translate-y-0 group-focus-visible/segment:opacity-100">
+                <span className="block max-w-48 truncate text-xs font-medium text-[hsl(var(--popover-foreground))]">
+                  {project.name}
+                </span>
+                <span className="mt-0.5 block text-[11px] tabular-nums text-muted-foreground">
+                  {formatDuration(project.minutes)} · {Math.round(percentage)}%
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }

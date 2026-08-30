@@ -4,28 +4,19 @@ import { useTimeTracking } from "@/hooks/useTimeTracking";
 import { ProjectList } from "@/components/projects/ProjectList";
 import { ActiveTimer } from "@/components/dashboard/ActiveTimer";
 import { FullScreenTimer } from "@/components/dashboard/FullScreenTimer";
-import { ManualEntryDialog } from "@/components/time-entries/ManualEntryForm";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Clock, Calendar, TrendingUp, ChartBar } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { ProjectPageHeader } from "@/components/projects/ProjectPageHeader";
-import { useDashboardSummaries } from "@/hooks/useReportingSummaries";
+import { useProjectSummaries } from "@/hooks/useReportingSummaries";
 
 export default function DashboardPage() {
-  const [searchTerm, setSearchTerm] = useState("");
   const [showPinnedOnly, setShowPinnedOnly] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [formOpen, setFormOpen] = useState(false);
-  const [manualEntryOpen, setManualEntryOpen] = useState(false);
   const [fullScreenTimerOpen, setFullScreenTimerOpen] = useState(false);
   const hadActiveEntryRef = useRef(false);
 
   const { projects, activeTimeEntry, elapsedTime } = useTimeTracking();
-  const {
-    completedSessionCount,
-    weekDurationSeconds,
-    weekSessionCount,
-  } = useDashboardSummaries();
+  const projectSummaries = useProjectSummaries();
 
   // Auto-open full-screen timer when a timer becomes active (e.g. user just started one)
   useEffect(() => {
@@ -43,73 +34,8 @@ export default function DashboardPage() {
     ? projects.find((project) => project.id === activeTimeEntry.projectId)
     : null;
 
-  const formatDuration = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
-  };
-
-  const StatsCards = () => (
-    <div className="bg-muted/60 p-8 rounded-lg space-y-4 border border-border/50">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold mb-2 flex items-center justify-center gap-2">
-          <ChartBar className="w-6 h-6 mr-2" /> Stats
-        </h2>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Projects
-            </CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{projects.length}</div>
-            <p className="text-xs text-muted-foreground">
-              {projects.filter((project) => project.isPinned).length} pinned
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">This Week</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatDuration(weekDurationSeconds)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {weekSessionCount} sessions
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="sm:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Sessions
-            </CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {completedSessionCount + (activeTimeEntry ? 1 : 0)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {activeTimeEntry ? 1 : 0} active
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-
   return (
-    <div className="w-full max-w-none px-4 md:px-8 md:py-8 overflow-x-hidden space-y-6">
+    <div className="mx-auto w-full max-w-[1480px] px-4 py-5 md:px-8 md:py-10 lg:px-12 overflow-x-hidden space-y-8">
       {activeTimeEntry && activeProject && fullScreenTimerOpen && (
         <FullScreenTimer
           timeEntry={activeTimeEntry}
@@ -119,73 +45,32 @@ export default function DashboardPage() {
         />
       )}
       <ProjectPageHeader
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
         showPinnedOnly={showPinnedOnly}
         setShowPinnedOnly={setShowPinnedOnly}
         viewMode={viewMode}
         setFormOpen={setFormOpen}
-        setManualEntryOpen={setManualEntryOpen}
         setViewMode={setViewMode}
       />
-      <ManualEntryDialog
-        open={manualEntryOpen}
-        onOpenChange={setManualEntryOpen}
+
+      {activeTimeEntry && activeProject && (
+        <ActiveTimer
+          timeEntry={activeTimeEntry}
+          project={activeProject}
+          elapsedTime={elapsedTime}
+          onExpand={() => setFullScreenTimerOpen(true)}
+        />
+      )}
+
+      <ProjectList
+        projects={projects}
+        activeTimeEntry={activeTimeEntry}
+        elapsedTime={elapsedTime}
+        setFormOpen={setFormOpen}
+        formOpen={formOpen}
+        showPinnedOnly={showPinnedOnly}
+        viewMode={viewMode}
+        projectSummaries={projectSummaries}
       />
-
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-        {/* Main column */}
-        <div className="xl:col-span-8 space-y-6">
-          {/* Mobile: Active timer on top */}
-          {activeTimeEntry && activeProject && (
-            <div className="lg:hidden">
-              <ActiveTimer
-                timeEntry={activeTimeEntry}
-                project={activeProject}
-                elapsedTime={elapsedTime}
-                onExpand={() => setFullScreenTimerOpen(true)}
-              />
-            </div>
-          )}
-
-          {/* Mobile: Stats below timer */}
-          <div className="lg:hidden">
-            <StatsCards />
-          </div>
-
-          {/* Projects */}
-          <ProjectList
-            projects={projects}
-            activeTimeEntry={activeTimeEntry}
-            elapsedTime={elapsedTime}
-            setFormOpen={setFormOpen}
-            formOpen={formOpen}
-            searchTerm={searchTerm}
-            showPinnedOnly={showPinnedOnly}
-            viewMode={viewMode}
-          />
-        </div>
-
-        {/* Sidebar column */}
-        <div className="lg:col-span-4 space-y-6  lg:self-start">
-          {/* Desktop: Active timer */}
-          {activeTimeEntry && activeProject && (
-            <div className="hidden lg:block">
-              <ActiveTimer
-                timeEntry={activeTimeEntry}
-                project={activeProject}
-                elapsedTime={elapsedTime}
-                onExpand={() => setFullScreenTimerOpen(true)}
-              />
-            </div>
-          )}
-
-          {/* Desktop: Stats */}
-          <div className="hidden lg:block">
-            <StatsCards />
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
