@@ -6,6 +6,12 @@ export interface Project {
   isPinned: boolean;
   createdAt: Date;
   updatedAt: Date;
+  /** Present only while the project can be recovered from Recently Deleted. */
+  deletedAt?: Date;
+  /** Firestore TTL removes the document after this time. */
+  purgeAt?: Date;
+  /** Connects a trashed project to the entries trashed with it. */
+  deletionId?: string;
 }
 
 export interface TimeEntry {
@@ -18,6 +24,9 @@ export interface TimeEntry {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
+  deletedAt?: Date;
+  purgeAt?: Date;
+  deletionId?: string;
 }
 
 export interface TimeEntryWithProject extends TimeEntry {

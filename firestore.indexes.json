@@ -43,5 +43,18 @@
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "projects",
+      "fieldPath": "purgeAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "timeEntries",
+      "fieldPath": "purgeAt",
+      "ttl": true,
+      "indexes": []
+    }
+  ]
 }

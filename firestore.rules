@@ -22,6 +22,29 @@ service cloud.firestore {
     function isValidTimestamp(field) {
       return field is timestamp;
     }
+
+    // Deletion metadata is owned by callable Functions and Firestore TTL. A
+    // browser can never turn a soft delete into a hard delete or forge a
+    // restore/cascade relationship.
+    function hasNoTrashFields(data) {
+      return !data.keys().hasAny(['deletedAt', 'purgeAt', 'deletionId']);
+    }
+
+    function doesNotChangeTrashFields() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['deletedAt', 'purgeAt', 'deletionId']);
+    }
+
+    function isNotTrashed(data) {
+      return !data.keys().hasAny(['deletedAt']) || data.deletedAt == null;
+    }
+
+    function isAvailableProject(projectId) {
+      return exists(/databases/$(database)/documents/projects/$(projectId))
+        && get(/databases/$(database)/documents/projects/$(projectId)).data.userId == request.auth.uid
+        && (!get(/databases/$(database)/documents/projects/$(projectId)).data.keys().hasAny(['deletedAt'])
+          || get(/databases/$(database)/documents/projects/$(projectId)).data.deletedAt == null);
+    }
     
     // ============================================
     // PROJECTS COLLECTION
@@ -39,10 +62,12 @@ service cloud.firestore {
         && request.resource.data.color is string
         && request.resource.data.color.matches('^#[0-9a-fA-F]{6}$')
         && isValidTimestamp(request.resource.data.createdAt)
-        && isValidTimestamp(request.resource.data.updatedAt);
+        && isValidTimestamp(request.resource.data.updatedAt)
+        && hasNoTrashFields(request.resource.data);
       
       // Users can update their own projects (cannot change userId)
       allow update: if isOwner(resource.data.userId)
+        && isNotTrashed(resource.data)
         && isOwnerOfIncoming()
         && request.resource.data.userId == resource.data.userId
         && request.resource.data.name is string
@@ -50,10 +75,11 @@ service cloud.firestore {
         && request.resource.data.name.size() <= 100
         && request.resource.data.color is string
         && request.resource.data.color.matches('^#[0-9a-fA-F]{6}$')
-        && isValidTimestamp(request.resource.data.updatedAt);
+        && isValidTimestamp(request.resource.data.updatedAt)
+        && doesNotChangeTrashFields();
       
-      // Users can delete their own projects
-      allow delete: if isOwner(resource.data.userId);
+      // Physical removal is restricted to trusted callable Functions / TTL.
+      allow delete: if false;
     }
     
     // ============================================
@@ -68,31 +94,49 @@ service cloud.firestore {
         && request.resource.data.keys().hasAll(['userId', 'projectId', 'startTime', 'isActive', 'createdAt', 'updatedAt'])
         && request.resource.data.projectId is string
         && request.resource.data.projectId.size() > 0
+        && isAvailableProject(request.resource.data.projectId)
         && isValidTimestamp(request.resource.data.startTime)
         && request.resource.data.isActive is bool
         && isValidTimestamp(request.resource.data.createdAt)
         && isValidTimestamp(request.resource.data.updatedAt)
+        // A running timer has no end; every completed event has a valid,
+        // positive time range. This prevents the timer state and its reported
+        // duration from diverging, including writes from another open tab.
+        && ((request.resource.data.isActive == true
+          && (!('endTime' in request.resource.data) || request.resource.data.endTime == null))
+          || (request.resource.data.isActive == false
+            && isValidTimestamp(request.resource.data.endTime)
+            && request.resource.data.endTime > request.resource.data.startTime))
         // description is optional
         && (!('description' in request.resource.data) || request.resource.data.description is string)
-        // endTime is optional (null when timer is active)
-        && (!('endTime' in request.resource.data) || request.resource.data.endTime == null || isValidTimestamp(request.resource.data.endTime));
+        // endTime is null or absent only when the timer is active.
+        && (!('endTime' in request.resource.data) || request.resource.data.endTime == null || isValidTimestamp(request.resource.data.endTime))
+        && hasNoTrashFields(request.resource.data);
       
       // Users can update their own time entries (cannot change userId)
       allow update: if isOwner(resource.data.userId)
+        && isNotTrashed(resource.data)
         && isOwnerOfIncoming()
         && request.resource.data.userId == resource.data.userId
         && request.resource.data.projectId is string
         && request.resource.data.projectId.size() > 0
+        && isAvailableProject(request.resource.data.projectId)
         && isValidTimestamp(request.resource.data.startTime)
         && request.resource.data.isActive is bool
         && isValidTimestamp(request.resource.data.updatedAt)
+        && ((request.resource.data.isActive == true
+          && (!('endTime' in request.resource.data) || request.resource.data.endTime == null))
+          || (request.resource.data.isActive == false
+            && isValidTimestamp(request.resource.data.endTime)
+            && request.resource.data.endTime > request.resource.data.startTime))
         // description is optional
         && (!('description' in request.resource.data) || request.resource.data.description is string)
-        // endTime is optional (null when timer is active)
-        && (!('endTime' in request.resource.data) || request.resource.data.endTime == null || isValidTimestamp(request.resource.data.endTime));
+        // endTime is null or absent only when the timer is active.
+        && (!('endTime' in request.resource.data) || request.resource.data.endTime == null || isValidTimestamp(request.resource.data.endTime))
+        && doesNotChangeTrashFields();
       
-      // Users can delete their own time entries
-      allow delete: if isOwner(resource.data.userId);
+      // Physical removal is restricted to trusted callable Functions / TTL.
+      allow delete: if false;
     }
 
     // Aggregate documents are created by the Admin SDK only. Users can read

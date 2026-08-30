@@ -1,11 +1,15 @@
 import { initializeApp } from "firebase-admin/app";
 import {
+  FieldPath,
   FieldValue,
   Firestore,
   getFirestore,
+  Timestamp,
 } from "firebase-admin/firestore";
 import { logger } from "firebase-functions";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
+import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { randomUUID } from "node:crypto";
 import {
   Contribution,
   TimeEntryDocument,
@@ -16,6 +20,209 @@ initializeApp();
 
 const db = getFirestore();
 const SCHEMA_VERSION = 1;
+const TRASH_RETENTION_DAYS = 30;
+const PAGE_SIZE = 400;
+
+type TrashType = "project" | "timeEntry";
+
+function requireId(value: unknown, name: string): string {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new HttpsError("invalid-argument", `${name} is required.`);
+  }
+  return value;
+}
+
+function requireUserId(uid: string | undefined): string {
+  if (!uid) throw new HttpsError("unauthenticated", "Sign in to manage deleted data.");
+  return uid;
+}
+
+function purgeTimestamp(): Timestamp {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + TRASH_RETENTION_DAYS);
+  return Timestamp.fromDate(date);
+}
+
+function isTrashed(data: FirebaseFirestore.DocumentData): boolean {
+  return data.deletedAt instanceof Timestamp;
+}
+
+async function forEachProjectEntry(
+  userId: string,
+  projectId: string,
+  operation: (writer: FirebaseFirestore.BulkWriter, snapshot: FirebaseFirestore.QueryDocumentSnapshot) => void,
+): Promise<void> {
+  let lastSnapshot: FirebaseFirestore.QueryDocumentSnapshot | undefined;
+
+  while (true) {
+    let entriesQuery = db
+      .collection("timeEntries")
+      .where("userId", "==", userId)
+      .where("projectId", "==", projectId)
+      .orderBy(FieldPath.documentId())
+      .limit(PAGE_SIZE);
+    if (lastSnapshot) entriesQuery = entriesQuery.startAfter(lastSnapshot);
+
+    const page = await entriesQuery.get();
+    if (page.empty) return;
+
+    const writer = db.bulkWriter();
+    for (const entry of page.docs) operation(writer, entry);
+    await writer.close();
+
+    lastSnapshot = page.docs.at(-1);
+    if (page.size < PAGE_SIZE) return;
+  }
+}
+
+/**
+ * Trashes a project and every currently visible entry. This is callable-only:
+ * users cannot forge the deletion group or delete a document outright.
+ * Paging + BulkWriter keeps the cascade safe for projects with thousands of entries.
+ */
+export const trashProject = onCall(async (request) => {
+  const userId = requireUserId(request.auth?.uid);
+  const projectId = requireId(request.data?.projectId, "projectId");
+  const projectRef = db.collection("projects").doc(projectId);
+  const deletion = await db.runTransaction(async (transaction) => {
+    const project = await transaction.get(projectRef);
+    if (!project.exists || project.data()?.userId !== userId) {
+      throw new HttpsError("not-found", "Project not found.");
+    }
+
+    const projectData = project.data()!;
+    if (isTrashed(projectData)) {
+      if (typeof projectData.deletionId !== "string" || !(projectData.purgeAt instanceof Timestamp)) {
+        throw new HttpsError("failed-precondition", "Project deletion metadata is incomplete.");
+      }
+      return {
+        deletionId: projectData.deletionId,
+        purgeAt: projectData.purgeAt as Timestamp,
+      };
+    }
+
+    const deletionId = randomUUID();
+    const purgeAt = purgeTimestamp();
+    transaction.update(projectRef, {
+      deletedAt: FieldValue.serverTimestamp(),
+      purgeAt,
+      deletionId,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    return { deletionId, purgeAt };
+  });
+
+  const { deletionId, purgeAt } = deletion;
+  await forEachProjectEntry(userId, projectId, (writer, entry) => {
+    // An entry that was independently deleted stays independently deleted.
+    if (!isTrashed(entry.data())) {
+      writer.update(entry.ref, {
+        deletedAt: FieldValue.serverTimestamp(),
+        purgeAt,
+        deletionId,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }
+  });
+  logger.info("Trashed project and associated entries", { userId, projectId, deletionId });
+});
+
+export const restoreProject = onCall(async (request) => {
+  const userId = requireUserId(request.auth?.uid);
+  const projectId = requireId(request.data?.projectId, "projectId");
+  const projectRef = db.collection("projects").doc(projectId);
+  const project = await projectRef.get();
+  if (!project.exists || project.data()?.userId !== userId) {
+    throw new HttpsError("not-found", "Project not found.");
+  }
+  const projectData = project.data()!;
+  if (!isTrashed(projectData)) return;
+  const deletionId = projectData.deletionId;
+
+  // Restore entries first so an interrupted call leaves the project marked as
+  // deleted and can safely resume the same cascade on retry.
+  if (typeof deletionId === "string") {
+    await forEachProjectEntry(userId, projectId, (writer, entry) => {
+      if (entry.data().deletionId === deletionId) {
+        writer.update(entry.ref, {
+          deletedAt: FieldValue.delete(),
+          purgeAt: FieldValue.delete(),
+          deletionId: FieldValue.delete(),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+    });
+  }
+  await projectRef.update({
+    deletedAt: FieldValue.delete(),
+    purgeAt: FieldValue.delete(),
+    deletionId: FieldValue.delete(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  logger.info("Restored project and associated entries", { userId, projectId, deletionId });
+});
+
+export const trashTimeEntry = onCall(async (request) => {
+  const userId = requireUserId(request.auth?.uid);
+  const entryId = requireId(request.data?.entryId, "entryId");
+  const entryRef = db.collection("timeEntries").doc(entryId);
+  const entry = await entryRef.get();
+  if (!entry.exists || entry.data()?.userId !== userId) {
+    throw new HttpsError("not-found", "Time entry not found.");
+  }
+  if (isTrashed(entry.data()!)) return;
+  await entryRef.update({
+    deletedAt: FieldValue.serverTimestamp(),
+    purgeAt: purgeTimestamp(),
+    deletionId: randomUUID(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+});
+
+export const restoreTimeEntry = onCall(async (request) => {
+  const userId = requireUserId(request.auth?.uid);
+  const entryId = requireId(request.data?.entryId, "entryId");
+  const entryRef = db.collection("timeEntries").doc(entryId);
+  const entry = await entryRef.get();
+  if (!entry.exists || entry.data()?.userId !== userId) {
+    throw new HttpsError("not-found", "Time entry not found.");
+  }
+  if (!isTrashed(entry.data()!)) return;
+  const project = await db.collection("projects").doc(entry.data()!.projectId).get();
+  if (!project.exists || project.data()?.userId !== userId || isTrashed(project.data()!)) {
+    throw new HttpsError("failed-precondition", "Restore the project before restoring this entry.");
+  }
+  await entryRef.update({
+    deletedAt: FieldValue.delete(),
+    purgeAt: FieldValue.delete(),
+    deletionId: FieldValue.delete(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+});
+
+/** Permanently remove only items already in the trash; normal clients have no delete rule. */
+export const permanentlyDeleteTrash = onCall(async (request) => {
+  const userId = requireUserId(request.auth?.uid);
+  const type = request.data?.type as TrashType;
+  if (type !== "project" && type !== "timeEntry") {
+    throw new HttpsError("invalid-argument", "type must be project or timeEntry.");
+  }
+  const id = requireId(request.data?.id, "id");
+  const collectionName = type === "project" ? "projects" : "timeEntries";
+  const ref = db.collection(collectionName).doc(id);
+  const snapshot = await ref.get();
+  if (!snapshot.exists || snapshot.data()?.userId !== userId) {
+    throw new HttpsError("not-found", "Deleted item not found.");
+  }
+  if (!isTrashed(snapshot.data()!)) {
+    throw new HttpsError("failed-precondition", "Only deleted items can be permanently removed.");
+  }
+  if (type === "project") {
+    await forEachProjectEntry(userId, id, (writer, entry) => writer.delete(entry.ref));
+  }
+  await ref.delete();
+  logger.info("Permanently removed trashed item", { userId, type, id });
+});
 
 interface AggregateDelta {
   completedSessionCount: number;

@@ -6,6 +6,8 @@ export interface TimeEntryDocument {
   startTime?: unknown;
   endTime?: unknown;
   isActive?: unknown;
+  /** A trashed entry no longer contributes to any reporting bucket. */
+  deletedAt?: unknown;
 }
 
 export interface Contribution {
@@ -32,7 +34,9 @@ function timestampToDate(value: unknown): Date | null {
 export function contributionFromEntry(
   data: TimeEntryDocument | undefined,
 ): Contribution | null {
-  if (!data || data.isActive === true) return null;
+  // A TTL hard delete arrives with this same deleted version as `before`, so
+  // it has no contribution to subtract a second time.
+  if (!data || data.isActive === true || data.deletedAt instanceof Timestamp) return null;
 
   const userId = typeof data.userId === "string" ? data.userId : null;
   const projectId = typeof data.projectId === "string" ? data.projectId : null;

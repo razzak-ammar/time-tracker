@@ -1,20 +1,20 @@
 import {
   collection,
+  deleteField,
   doc,
   addDoc,
   updateDoc,
-  deleteDoc,
   getDocs,
   query,
   where,
   orderBy,
-  limit,
   documentId,
   serverTimestamp,
   onSnapshot,
   Timestamp,
 } from "firebase/firestore";
-import { db } from "./firebase";
+import { httpsCallable } from "firebase/functions";
+import { db, functions } from "./firebase";
 import {
   DailySummary,
   OverviewSummary,
@@ -44,19 +44,23 @@ export const updateProject = async (id: string, updates: Partial<Project>) => {
 };
 
 export const deleteProject = async (id: string) => {
-  const docRef = doc(db, "projects", id);
-  await deleteDoc(docRef);
+  await httpsCallable<{ projectId: string }, void>(functions, "trashProject")({
+    projectId: id,
+  });
+};
+
+export const restoreProject = async (id: string) => {
+  await httpsCallable<{ projectId: string }, void>(functions, "restoreProject")({
+    projectId: id,
+  });
 };
 
 export const getProjects = async (userId: string): Promise<Project[]> => {
   const q = query(collection(db, "projects"), where("userId", "==", userId));
   const querySnapshot = await getDocs(q);
-  const projects = querySnapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-    createdAt: doc.data().createdAt?.toDate() || new Date(),
-    updatedAt: doc.data().updatedAt?.toDate() || new Date(),
-  })) as Project[];
+  const projects = querySnapshot.docs
+    .map(projectFromSnapshot)
+    .filter((project) => !project.deletedAt);
 
   // Sort by creation date in JavaScript instead of Firestore
   return projects.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
@@ -68,12 +72,9 @@ export const subscribeToProjects = (
 ) => {
   const q = query(collection(db, "projects"), where("userId", "==", userId));
   return onSnapshot(q, (querySnapshot) => {
-    const projects = querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: doc.data().createdAt?.toDate() || new Date(),
-      updatedAt: doc.data().updatedAt?.toDate() || new Date(),
-    })) as Project[];
+    const projects = querySnapshot.docs
+      .map(projectFromSnapshot)
+      .filter((project) => !project.deletedAt);
 
     // Sort by creation date in JavaScript instead of Firestore
     const sortedProjects = projects.sort(
@@ -102,38 +103,64 @@ export const updateTimeEntry = async (
   updates: Partial<TimeEntry>,
 ) => {
   const docRef = doc(db, "timeEntries", id);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const updateData: any = {
-    ...updates,
+  // Do not pass `undefined` to Firestore: it is rejected by default and can
+  // leave the caller believing an edit was saved. Explicitly clearing an
+  // optional field removes it instead.
+  const updateData: Record<string, unknown> = {
     updatedAt: serverTimestamp(),
   };
 
   if (updates.startTime) {
     updateData.startTime = Timestamp.fromDate(updates.startTime);
   }
-  if (updates.endTime) {
-    updateData.endTime = Timestamp.fromDate(updates.endTime);
+  if ("endTime" in updates) {
+    updateData.endTime = updates.endTime
+      ? Timestamp.fromDate(updates.endTime)
+      : deleteField();
+  }
+  if ("description" in updates) {
+    updateData.description = updates.description?.trim()
+      ? updates.description.trim()
+      : deleteField();
+  }
+  if ("isActive" in updates && typeof updates.isActive === "boolean") {
+    updateData.isActive = updates.isActive;
+  }
+  if (updates.projectId) {
+    updateData.projectId = updates.projectId;
   }
 
   await updateDoc(docRef, updateData);
 };
 
 export const deleteTimeEntry = async (id: string) => {
-  const docRef = doc(db, "timeEntries", id);
-  await deleteDoc(docRef);
+  await httpsCallable<{ entryId: string }, void>(functions, "trashTimeEntry")({
+    entryId: id,
+  });
+};
+
+export const restoreTimeEntry = async (id: string) => {
+  await httpsCallable<{ entryId: string }, void>(functions, "restoreTimeEntry")({
+    entryId: id,
+  });
+};
+
+export const permanentlyDeleteTrash = async (
+  type: "project" | "timeEntry",
+  id: string,
+) => {
+  await httpsCallable<{ type: "project" | "timeEntry"; id: string }, void>(
+    functions,
+    "permanentlyDeleteTrash",
+  )({ type, id });
 };
 
 export const getTimeEntries = async (userId: string): Promise<TimeEntry[]> => {
   const q = query(collection(db, "timeEntries"), where("userId", "==", userId));
   const querySnapshot = await getDocs(q);
-  const timeEntries = querySnapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-    startTime: doc.data().startTime?.toDate() || new Date(),
-    endTime: doc.data().endTime?.toDate() || undefined,
-    createdAt: doc.data().createdAt?.toDate() || new Date(),
-    updatedAt: doc.data().updatedAt?.toDate() || new Date(),
-  })) as TimeEntry[];
+  const timeEntries = querySnapshot.docs
+    .map(timeEntryFromSnapshot)
+    .filter((entry) => !entry.deletedAt);
 
   // Sort by start time in JavaScript instead of Firestore
   return timeEntries.sort(
@@ -152,38 +179,31 @@ export const getActiveTimeEntry = async (
   const querySnapshot = await getDocs(q);
   if (querySnapshot.empty) return null;
 
-  const doc = querySnapshot.docs[0];
-  return {
-    id: doc.id,
-    ...doc.data(),
-    startTime: doc.data().startTime?.toDate() || new Date(),
-    endTime: doc.data().endTime?.toDate() || undefined,
-    createdAt: doc.data().createdAt?.toDate() || new Date(),
-    updatedAt: doc.data().updatedAt?.toDate() || new Date(),
-  } as TimeEntry;
+  const entry = querySnapshot.docs.map(timeEntryFromSnapshot).find((item) => !item.deletedAt);
+  return entry ?? null;
 };
 
 export const subscribeToTimeEntries = (
   userId: string,
   callback: (timeEntries: TimeEntry[]) => void,
+  onError?: (error: Error) => void,
 ) => {
   const q = query(collection(db, "timeEntries"), where("userId", "==", userId));
-  return onSnapshot(q, (querySnapshot) => {
-    const timeEntries = querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-      startTime: doc.data().startTime?.toDate() || new Date(),
-      endTime: doc.data().endTime?.toDate() || undefined,
-      createdAt: doc.data().createdAt?.toDate() || new Date(),
-      updatedAt: doc.data().updatedAt?.toDate() || new Date(),
-    })) as TimeEntry[];
+  return onSnapshot(
+    q,
+    (querySnapshot) => {
+      const timeEntries = querySnapshot.docs
+        .map(timeEntryFromSnapshot)
+        .filter((entry) => !entry.deletedAt);
 
-    // Sort by start time in JavaScript instead of Firestore
-    const sortedTimeEntries = timeEntries.sort(
-      (a, b) => b.startTime.getTime() - a.startTime.getTime(),
-    );
-    callback(sortedTimeEntries);
-  });
+      // Sort by start time in JavaScript instead of Firestore
+      const sortedTimeEntries = timeEntries.sort(
+        (a, b) => b.startTime.getTime() - a.startTime.getTime(),
+      );
+      callback(sortedTimeEntries);
+    },
+    onError,
+  );
 };
 
 export const subscribeToActiveTimeEntry = (
@@ -201,16 +221,7 @@ export const subscribeToActiveTimeEntry = (
       return;
     }
 
-    const doc = querySnapshot.docs[0];
-    const timeEntry = {
-      id: doc.id,
-      ...doc.data(),
-      startTime: doc.data().startTime?.toDate() || new Date(),
-      endTime: doc.data().endTime?.toDate() || undefined,
-      createdAt: doc.data().createdAt?.toDate() || new Date(),
-      updatedAt: doc.data().updatedAt?.toDate() || new Date(),
-    } as TimeEntry;
-    callback(timeEntry);
+    callback(querySnapshot.docs.map(timeEntryFromSnapshot).find((entry) => !entry.deletedAt) ?? null);
   });
 };
 
@@ -222,7 +233,6 @@ export const subscribeToMostRecentTimeEntry = (
     collection(db, "timeEntries"),
     where("userId", "==", userId),
     orderBy("startTime", "desc"),
-    limit(1),
   );
   return onSnapshot(q, (querySnapshot) => {
     if (querySnapshot.empty) {
@@ -230,18 +240,49 @@ export const subscribeToMostRecentTimeEntry = (
       return;
     }
 
-    const snapshot = querySnapshot.docs[0];
-    callback({
-      id: snapshot.id,
-      ...snapshot.data(),
-      startTime: snapshot.data().startTime?.toDate() || new Date(),
-      endTime: snapshot.data().endTime?.toDate() || undefined,
-      createdAt: snapshot.data().createdAt?.toDate() || new Date(),
-      updatedAt: snapshot.data().updatedAt?.toDate() || new Date(),
-    } as TimeEntry);
+    callback(querySnapshot.docs.map(timeEntryFromSnapshot).find((entry) => !entry.deletedAt) ?? null);
   });
 };
 
+export const subscribeToDeletedProjects = (
+  userId: string,
+  callback: (projects: Project[]) => void,
+) => onSnapshot(query(collection(db, "projects"), where("userId", "==", userId)), (snapshot) => {
+  callback(snapshot.docs.map(projectFromSnapshot).filter((project) => Boolean(project.deletedAt)));
+});
+
+export const subscribeToDeletedTimeEntries = (
+  userId: string,
+  callback: (entries: TimeEntry[]) => void,
+) => onSnapshot(query(collection(db, "timeEntries"), where("userId", "==", userId)), (snapshot) => {
+  callback(snapshot.docs.map(timeEntryFromSnapshot).filter((entry) => Boolean(entry.deletedAt)));
+});
+
+function projectFromSnapshot(snapshot: { id: string; data: () => Record<string, unknown> }): Project {
+  const data = snapshot.data();
+  return {
+    ...data,
+    id: snapshot.id,
+    createdAt: (data.createdAt as Timestamp | undefined)?.toDate() || new Date(),
+    updatedAt: (data.updatedAt as Timestamp | undefined)?.toDate() || new Date(),
+    deletedAt: (data.deletedAt as Timestamp | undefined)?.toDate(),
+    purgeAt: (data.purgeAt as Timestamp | undefined)?.toDate(),
+  } as Project;
+}
+
+function timeEntryFromSnapshot(snapshot: { id: string; data: () => Record<string, unknown> }): TimeEntry {
+  const data = snapshot.data();
+  return {
+    ...data,
+    id: snapshot.id,
+    startTime: (data.startTime as Timestamp | undefined)?.toDate() || new Date(),
+    endTime: (data.endTime as Timestamp | undefined)?.toDate() || undefined,
+    createdAt: (data.createdAt as Timestamp | undefined)?.toDate() || new Date(),
+    updatedAt: (data.updatedAt as Timestamp | undefined)?.toDate() || new Date(),
+    deletedAt: (data.deletedAt as Timestamp | undefined)?.toDate(),
+    purgeAt: (data.purgeAt as Timestamp | undefined)?.toDate(),
+  } as TimeEntry;
+}
 export const subscribeToOverviewSummary = (
   userId: string,
   callback: (summary: OverviewSummary | null) => void,

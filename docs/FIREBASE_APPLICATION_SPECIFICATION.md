@@ -4,7 +4,7 @@
 
 This document describes the behavior and Firebase contract implemented by the web application in `web-app/`. It is intended to let another client—for example, an iOS/Xcode app—implement compatible functionality against the same Firebase project without depending on the web UI or its TypeScript code.
 
-The source of truth for persisted data is Cloud Firestore. Firebase Authentication supplies the authenticated user identity. The repository now includes a Cloud Functions aggregation worker, which must be deployed and backfilled before clients use its aggregate documents. There is no conventional server/API layer, Firebase Storage, or user-profile writes.
+The source of truth for persisted data is Cloud Firestore. Firebase Authentication supplies the authenticated user identity. The repository includes Cloud Functions for aggregation and trusted recoverable-deletion operations, which must be deployed before clients use those workflows. There is no conventional server/API layer, Firebase Storage, or user-profile writes.
 
 ## Firebase services and configuration
 
@@ -12,7 +12,7 @@ The source of truth for persisted data is Cloud Firestore. Firebase Authenticati
 | --- | --- |
 | Firebase Authentication | Email/password account creation, sign-in, sign-out, and auth-state observation. |
 | Cloud Firestore | Projects and time-entry persistence, one-shot reads, and real-time listeners. |
-| Cloud Functions (2nd gen) | Trusted `timeEntries` aggregation worker; source is checked in but deployment/backfill is pending. |
+| Cloud Functions (2nd gen) | Trusted `timeEntries` aggregation worker plus callable trash/restore/purge operations. |
 
 The web client initializes Firebase using these public environment values: `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`, `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`, and `NEXT_PUBLIC_FIREBASE_APP_ID`.
 
@@ -70,13 +70,13 @@ The current schema uses two top-level collections. Timestamps are Firestore `Tim
 - A running timer has `isActive: true` and no end time (the web client writes `null` when creating it).
 - The UI assumes, but the database does not enforce, at most one active entry per user.
 - `createdAt` is set once with a server timestamp; every mutation overwrites `updatedAt` with a server timestamp.
-- Project deletion currently does **not** delete related time entries. Existing entries become orphaned and views that need the missing project omit them. Do not rely on deletion as a cascade.
+- Projects and time entries use recoverable deletion. The client invokes a trusted callable function; it sets `deletedAt`, `purgeAt`, and `deletionId` rather than hard-deleting. Project deletion marks its associated non-deleted entries in pages, and restore uses `deletionId` to restore exactly that group. Firestore TTL removes expired records.
 
 ## Security and authorization
 
-Firestore rules require authentication for every permitted operation. Reads, updates, and deletes are allowed only if the existing document's `userId` matches `request.auth.uid`; creates require the incoming `userId` to match. Updates cannot transfer ownership.
+Firestore rules require authentication for every permitted operation. Reads and normal updates are allowed only if the existing document's `userId` matches `request.auth.uid`; creates require the incoming `userId` to match. Updates cannot transfer ownership. Browser clients cannot write deletion metadata or physically delete project/time-entry documents: only trusted callable functions and Firestore TTL perform those operations.
 
-Rules validate project names, colors, timestamp fields, entry `projectId`, and the types of `isActive`, `description`, and `endTime`. They do not currently verify that `projectId` points to an existing project owned by the caller, that entries have non-negative durations, or that a user has a single active timer. A non-web client should enforce those application invariants before writing; a future backend design should enforce the critical ones centrally.
+Rules validate project names, colors, timestamps, entry state/ranges, and ensure a new or edited entry points to an available project. They do not currently enforce that a user has a single active timer. A non-web client should preserve these same invariants before writing.
 
 ### Aggregate documents
 
@@ -120,7 +120,7 @@ The checked-in composite indexes support future server-side ordering/filtering f
 | Create project | Add a project with selected name/color, current user ID, `isPinned: false`, and server timestamps. |
 | Edit project | Update name and/or color; `updatedAt` changes. |
 | Pin/unpin project | Update `isPinned`. |
-| Delete project | Delete only the project document; no entry cleanup occurs. |
+| Delete project | Move the project and its associated non-deleted entries to Recently Deleted for 30 days; restore returns that deletion group. |
 | Browse/search projects | Uses the live project set. Search, pinned-only filtering, grid/list choice, and grouping are client-side UI behavior. |
 | Pinned screen | Filters the live project set to `isPinned == true`; each card calculates its lifetime time from currently loaded entries. |
 
@@ -140,7 +140,7 @@ The checked-in composite indexes support future server-side ordering/filtering f
 | Calendar quick entry | Double-clicking a time slot opens a prefilled one-hour completed entry for that date/time. The most recently used project is preselected when possible. |
 | Most recently used project | Derived from the first entry in the locally sorted all-entry list; otherwise uses the first pinned project, then first project. |
 | Edit entry | Updates start time, optional end time, and description. The generic update helper converts supplied dates to Firestore timestamps. |
-| Delete entry | Deletes the entry document after UI confirmation. |
+| Delete entry | Moves the entry to Recently Deleted after confirmation; it can be restored for 30 days. |
 | Time-entry history | Filters the locally loaded all-entry list by project, text (project name/description), and period (past 7 days, current week, month, all). |
 | Time breakdown chart | Aggregates the locally filtered entries by project; active entries count from start until now. |
 | Calendar | Builds day/week/custom-range timelines locally from all loaded entries. Dragging moves an entry; resizing changes its start or end. The minimum duration is five minutes and edits are clamped to the displayed day. |
@@ -170,7 +170,7 @@ For iOS, use Firebase Auth's email/password APIs and Firestore's snapshot listen
 
 - The web UI still uses legacy full-history reads until its client refactor lands; aggregates are currently a backend foundation and must be backfilled per existing user before client adoption.
 - No backend-level protection against multiple active timers.
-- No referential integrity or deletion cascade for projects.
+- Recoverable deletion uses a trusted paged cascade, but existing historic orphaned entries are not automatically repaired.
 - No user profile document despite the unused `UserProfile` type.
 - No pagination, date-window querying, or server-side query ordering in the current web implementation.
 - Client clocks supply start/end times, so timestamps can differ between devices.
