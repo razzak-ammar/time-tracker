@@ -43,7 +43,9 @@ export function TabBar() {
   const pathname = usePathname();
   const navRef = useRef<HTMLElement>(null);
   const tabRefs = useRef<(HTMLAnchorElement | null)[]>([]);
-  const activeIndex = primaryTabs.findIndex((tab) => tab.href === pathname);
+  const isTabActive = (href: string) =>
+    pathname === href || (href === "/dashboard" && pathname.startsWith("/projects/"));
+  const activeIndex = primaryTabs.findIndex((tab) => isTabActive(tab.href));
   const secondaryActive = secondaryTabs.some((tab) => tab.href === pathname);
   const [pillStyle, setPillStyle] = useState({ left: 0, width: 0 });
   const [pillReady, setPillReady] = useState(false);
@@ -92,7 +94,7 @@ export function TabBar() {
       )}
       {primaryTabs.map((tab, index) => {
         const Icon = tab.icon;
-        const isActive = pathname === tab.href;
+        const isActive = isTabActive(tab.href);
         return (
           <Link
             key={tab.href}

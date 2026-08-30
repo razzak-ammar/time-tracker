@@ -17,6 +17,7 @@ import { Clock, Edit, Trash2, Calendar } from "lucide-react";
 import { format } from "date-fns";
 import { useState } from "react";
 import { updateTimeEntry, deleteTimeEntry } from "@/lib/firebase-service";
+import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
 
 interface TimeEntryCardProps {
   timeEntry: TimeEntry;
@@ -30,6 +31,7 @@ export function TimeEntryCard({
   onUpdate,
 }: TimeEntryCardProps) {
   const [editOpen, setEditOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [startTime, setStartTime] = useState(
     format(timeEntry.startTime, "yyyy-MM-dd'T'HH:mm"),
   );
@@ -86,8 +88,6 @@ export function TimeEntryCard({
   };
 
   const handleDelete = async () => {
-    if (!confirm("Move this time entry to Recently Deleted? You can restore it for 30 days.")) return;
-
     setLoading(true);
     try {
       await deleteTimeEntry(timeEntry.id);
@@ -222,11 +222,14 @@ export function TimeEntryCard({
               <Button
                 variant="destructive"
                 size="sm"
-                onClick={handleDelete}
+                onClick={() => {
+                  setEditOpen(false);
+                  setDeleteDialogOpen(true);
+                }}
                 disabled={loading}
               >
                 <Trash2 className="h-4 w-4 mr-1" />
-                Move to Recently Deleted
+                Delete
               </Button>
 
               <div className="space-x-2">
@@ -252,6 +255,13 @@ export function TimeEntryCard({
           </div>
         </DialogContent>
       </Dialog>
+      <DeleteConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete this time entry?"
+        description="This entry will move to Recently Deleted, where you can restore it for 30 days."
+        onConfirm={handleDelete}
+      />
     </>
   );
 }

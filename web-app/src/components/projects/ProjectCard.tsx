@@ -15,6 +15,7 @@ import { useTimeTracking } from "@/hooks/useTimeTracking";
 import { updateProject, deleteProject } from "@/lib/firebase-service";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import Link from "next/link";
 import { ProjectForm } from "@/components/projects/ProjectForm";
 import {
   DropdownMenu,
@@ -28,6 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
 
 interface ProjectCardProps {
   project: Project;
@@ -52,6 +54,7 @@ export function ProjectCard({
   const { startTracking, stopTracking, activeTimeEntry } = useTimeTracking();
   const [openEdit, setOpenEdit] = useState(false);
   const [showSwitchModal, setShowSwitchModal] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleToggleTracking = async () => {
@@ -86,7 +89,6 @@ export function ProjectCard({
   };
 
   const handleDelete = async () => {
-    if (!window.confirm(`Move “${project.name}” and its time entries to Recently Deleted? You can restore them for 30 days.`)) return;
     await deleteProject(project.id);
   };
 
@@ -101,7 +103,7 @@ export function ProjectCard({
         <Button
           variant="ghost"
           size="sm"
-          className="h-8 w-8 rounded-full p-0 text-muted-foreground hover:bg-background/80 hover:text-foreground md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
+          className="h-8 w-8 rounded-full p-0 text-muted-foreground hover:bg-background/80 hover:text-foreground data-[state=open]:bg-muted data-[state=open]:text-foreground [&_svg]:transition-transform [&_svg]:duration-200 [&[data-state=open]_svg]:rotate-90 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
           title="Project options"
         >
           <MoreVertical className="h-4 w-4" />
@@ -109,14 +111,17 @@ export function ProjectCard({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => setOpenEdit(true)}>
-          <Pencil className="mr-2 h-4 w-4" /> Edit
+          <Pencil className="h-4 w-4" /> Edit
         </DropdownMenuItem>
         <DropdownMenuItem onClick={handleTogglePin}>
-          <Pin className="mr-2 h-4 w-4" />
+          <Pin className="h-4 w-4" />
           {project.isPinned ? "Unpin" : "Pin"}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={handleDelete} className="text-red-600">
-          <Trash2 className="mr-2 h-4 w-4" /> Move to Recently Deleted
+        <DropdownMenuItem
+          variant="destructive"
+          onClick={() => setDeleteDialogOpen(true)}
+        >
+          <Trash2 className="h-4 w-4" /> Delete
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -172,7 +177,12 @@ export function ProjectCard({
               style={{ backgroundColor: project.color }}
             />
             <h3 className="min-w-0 flex-1 truncate text-base font-medium">
-              {project.name}
+              <Link
+                href={`/projects/${project.id}`}
+                className="rounded-sm outline-none transition-colors hover:text-emerald-500 focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {project.name}
+              </Link>
             </h3>
             {optionsMenu}
           </div>
@@ -207,7 +217,12 @@ export function ProjectCard({
             />
             <div className="min-w-0">
               <h3 className="truncate text-sm font-medium md:text-base">
-                {project.name}
+                <Link
+                  href={`/projects/${project.id}`}
+                  className="rounded-sm outline-none transition-colors hover:text-emerald-500 focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {project.name}
+                </Link>
               </h3>
               {isActive && elapsedTime && (
                 <span className="mt-1 flex items-center gap-1 text-xs font-medium tabular-nums text-emerald-500">
@@ -240,6 +255,13 @@ export function ProjectCard({
         open={openEdit}
         onOpenChange={setOpenEdit}
         project={project}
+      />
+      <DeleteConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title={`Delete “${project.name}”?`}
+        description="This project and its time entries will move to Recently Deleted, where you can restore them for 30 days."
+        onConfirm={handleDelete}
       />
       <Dialog open={showSwitchModal} onOpenChange={setShowSwitchModal}>
         <DialogContent className="sm:max-w-md">

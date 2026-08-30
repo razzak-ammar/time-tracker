@@ -16,11 +16,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { updateTimeEntry, deleteTimeEntry } from "@/lib/firebase-service";
 import { cn } from "@/lib/utils";
+import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
 
 interface TimeEntryListItemProps {
   timeEntry: TimeEntry;
   project: Project;
   onUpdate?: () => void;
+  showProjectName?: boolean;
 }
 
 const formatDuration = (minutes: number) => {
@@ -33,6 +35,7 @@ export function TimeEntryListItem({
   timeEntry,
   project,
   onUpdate,
+  showProjectName = true,
 }: TimeEntryListItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [startTime, setStartTime] = useState(
@@ -42,6 +45,7 @@ export function TimeEntryListItem({
     timeEntry.endTime ? format(timeEntry.endTime, "yyyy-MM-dd'T'HH:mm") : "",
   );
   const [description, setDescription] = useState(timeEntry.description || "");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<"save" | "delete" | null>(
     null,
   );
@@ -101,8 +105,6 @@ export function TimeEntryListItem({
   };
 
   const handleDelete = async () => {
-    if (!confirm("Move this time entry to Recently Deleted? You can restore it for 30 days.")) return;
-
     setPendingAction("delete");
     try {
       await deleteTimeEntry(timeEntry.id);
@@ -145,7 +147,11 @@ export function TimeEntryListItem({
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h3 className="truncate text-sm font-medium">{project.name}</h3>
+            <h3 className="truncate text-sm font-medium">
+              {showProjectName
+                ? project.name
+                : timeEntry.description || "Time entry"}
+            </h3>
             {timeEntry.isActive && (
               <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-500">
                 Active
@@ -160,7 +166,7 @@ export function TimeEntryListItem({
               {timeEntry.endTime ? format(timeEntry.endTime, "h:mm a") : "Now"}
             </span>
           </div>
-          {timeEntry.description && (
+          {showProjectName && timeEntry.description && (
             <p className="mt-1 truncate text-xs text-muted-foreground">
               {timeEntry.description}
             </p>
@@ -264,16 +270,12 @@ export function TimeEntryListItem({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={handleDelete}
+                onClick={() => setDeleteDialogOpen(true)}
                 disabled={pendingAction !== null}
                 className="mr-auto text-destructive hover:bg-destructive/10 hover:text-destructive"
               >
-                {pendingAction === "delete" ? (
-                  <LoaderCircle className="mr-1.5 size-4 animate-spin" />
-                ) : (
-                  <Trash2 className="mr-1.5 size-4" />
-                )}
-                {pendingAction === "delete" ? "Moving" : "Move to Recently Deleted"}
+                <Trash2 className="mr-1.5 size-4" />
+                Delete
               </Button>
 
               <Button
@@ -300,6 +302,13 @@ export function TimeEntryListItem({
           </div>
         </div>
       </div>
+      <DeleteConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete this time entry?"
+        description="This entry will move to Recently Deleted, where you can restore it for 30 days."
+        onConfirm={handleDelete}
+      />
     </article>
   );
 }

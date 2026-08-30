@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { formatDuration } from "@/lib/utils";
+import Link from "next/link";
 
 interface PinnedProjectCardProps {
   project: Project;
@@ -115,7 +116,12 @@ export function PinnedProjectCard({
               </Badge>
             </div>
             <h3 className="text-lg md:text-2xl font-bold text-white mb-1">
-              {project.name}
+              <Link
+                href={`/projects/${project.id}`}
+                className="rounded-sm outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-white"
+              >
+                {project.name}
+              </Link>
             </h3>
             <div className="flex items-center text-white/60 text-xs md:text-sm">
               <Clock className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />

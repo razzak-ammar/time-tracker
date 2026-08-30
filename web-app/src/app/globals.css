@@ -172,6 +172,282 @@
   }
 }
 
+/* Directional month transitions for react-day-picker calendars. */
+@keyframes calendar-month-enter-from-left {
+  from {
+    opacity: 0;
+    transform: translateX(-32px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes calendar-month-enter-from-right {
+  from {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes calendar-month-exit-to-left {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-32px);
+  }
+}
+
+@keyframes calendar-month-exit-to-right {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+}
+
+@keyframes calendar-caption-enter {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes calendar-caption-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes delete-confirmation-enter {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -40%) scale(0.9);
+  }
+  68% {
+    opacity: 1;
+    transform: translate(-50%, -51.5%) scale(1.018);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes delete-confirmation-exit {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -46%) scale(0.96);
+  }
+}
+
+@keyframes delete-confirmation-icon-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.65) rotate(-8deg);
+  }
+  72% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.08) rotate(2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0);
+  }
+}
+
+@keyframes app-dropdown-enter {
+  0% {
+    opacity: 0;
+    transform: translate(var(--dropdown-enter-x), var(--dropdown-enter-y))
+      scale(0.94);
+  }
+  72% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1.012);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+@keyframes app-dropdown-exit {
+  from {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(var(--dropdown-enter-x), var(--dropdown-enter-y))
+      scale(0.97);
+  }
+}
+
+@keyframes app-dropdown-item-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes project-form-enter {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -44%) scale(0.94);
+  }
+  70% {
+    opacity: 1;
+    transform: translate(-50%, -51%) scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes project-form-exit {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -46%) scale(0.97);
+  }
+}
+
+@keyframes project-form-icon-enter {
+  from {
+    opacity: 0;
+    transform: translateY(7px) scale(0.75) rotate(-5deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0);
+  }
+}
+
+.project-form-panel[data-state="open"] {
+  animation: project-form-enter 320ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
+}
+
+.project-form-panel[data-state="closed"] {
+  animation: project-form-exit 170ms ease-in both !important;
+}
+
+.project-form-panel[data-state="open"] .project-form-icon {
+  animation: project-form-icon-enter 300ms 80ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.app-dropdown-panel[data-side="bottom"] {
+  --dropdown-enter-x: 0px;
+  --dropdown-enter-y: -10px;
+}
+
+.app-dropdown-panel[data-side="top"] {
+  --dropdown-enter-x: 0px;
+  --dropdown-enter-y: 10px;
+}
+
+.app-dropdown-panel[data-side="left"] {
+  --dropdown-enter-x: 10px;
+  --dropdown-enter-y: 0px;
+}
+
+.app-dropdown-panel[data-side="right"] {
+  --dropdown-enter-x: -10px;
+  --dropdown-enter-y: 0px;
+}
+
+.app-dropdown-panel[data-state="open"] {
+  animation: app-dropdown-enter 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.app-dropdown-panel[data-state="closed"] {
+  animation: app-dropdown-exit 140ms ease-in both;
+}
+
+.app-dropdown-panel[data-state="open"] [data-slot="dropdown-menu-item"] {
+  animation: app-dropdown-item-enter 180ms 45ms ease-out both;
+}
+
+.app-dropdown-panel[data-state="open"]
+  [data-slot="dropdown-menu-item"]:nth-of-type(2) {
+  animation-delay: 75ms;
+}
+
+.app-dropdown-panel[data-state="open"]
+  [data-slot="dropdown-menu-item"]:nth-of-type(3) {
+  animation-delay: 105ms;
+}
+
+.delete-confirmation-panel[data-state="open"] {
+  animation: delete-confirmation-enter 380ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
+}
+
+.delete-confirmation-panel[data-state="closed"] {
+  animation: delete-confirmation-exit 180ms ease-in both !important;
+}
+
+.delete-confirmation-panel[data-state="open"] .delete-confirmation-icon {
+  animation: delete-confirmation-icon-enter 340ms 110ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.rdp-weeks_before_enter {
+  animation: calendar-month-enter-from-left 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.rdp-weeks_before_exit {
+  animation: calendar-month-exit-to-left 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.rdp-weeks_after_enter {
+  animation: calendar-month-enter-from-right 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.rdp-weeks_after_exit {
+  animation: calendar-month-exit-to-right 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.rdp-caption_after_enter,
+.rdp-caption_before_enter {
+  animation: calendar-caption-enter 220ms ease-out both;
+}
+
+.rdp-caption_after_exit,
+.rdp-caption_before_exit {
+  animation: calendar-caption-exit 180ms ease-in both;
+}
+
 .project-enter {
   animation: project-enter 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -179,6 +455,38 @@
 @media (prefers-reduced-motion: reduce) {
   .project-enter {
     animation: none;
+  }
+
+  .rdp-weeks_before_enter,
+  .rdp-weeks_before_exit,
+  .rdp-weeks_after_enter,
+  .rdp-weeks_after_exit,
+  .rdp-caption_after_enter,
+  .rdp-caption_after_exit,
+  .rdp-caption_before_enter,
+  .rdp-caption_before_exit {
+    animation-duration: 0.01ms;
+  }
+
+  .delete-confirmation-panel[data-state="open"],
+  .delete-confirmation-panel[data-state="closed"],
+  .delete-confirmation-panel[data-state="open"] .delete-confirmation-icon {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+  }
+
+  .app-dropdown-panel[data-state="open"],
+  .app-dropdown-panel[data-state="closed"],
+  .app-dropdown-panel[data-state="open"] [data-slot="dropdown-menu-item"] {
+    animation-duration: 0.01ms;
+    animation-delay: 0ms;
+  }
+
+  .project-form-panel[data-state="open"],
+  .project-form-panel[data-state="closed"],
+  .project-form-panel[data-state="open"] .project-form-icon {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
   }
 }
 

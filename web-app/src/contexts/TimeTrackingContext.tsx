@@ -14,6 +14,7 @@ import {
 
 interface TimeTrackingContextValue {
   projects: Project[];
+  projectsLoading: boolean;
   activeTimeEntry: TimeEntry | null;
   elapsedTime: string;
   mostRecentlyUsedProject: Project | null;
@@ -30,6 +31,7 @@ const TimeTrackingContext = createContext<TimeTrackingContextValue | undefined>(
 export function TimeTrackingProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(true);
   const [activeTimeEntry, setActiveTimeEntry] = useState<TimeEntry | null>(null);
   const [mostRecentTimeEntry, setMostRecentTimeEntry] = useState<TimeEntry | null>(null);
   const [elapsedTime, setElapsedTime] = useState("");
@@ -37,9 +39,14 @@ export function TimeTrackingProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (!user) {
       setProjects([]);
+      setProjectsLoading(false);
       return;
     }
-    return subscribeToProjects(user.uid, setProjects);
+    setProjectsLoading(true);
+    return subscribeToProjects(user.uid, (nextProjects) => {
+      setProjects(nextProjects);
+      setProjectsLoading(false);
+    });
   }, [user]);
 
   useEffect(() => {
@@ -122,6 +129,7 @@ export function TimeTrackingProvider({ children }: { children: React.ReactNode }
   return (
     <TimeTrackingContext.Provider value={{
       projects,
+      projectsLoading,
       activeTimeEntry,
       elapsedTime,
       mostRecentlyUsedProject,
