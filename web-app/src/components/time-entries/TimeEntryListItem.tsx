@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { format } from "date-fns";
 import {
   CalendarDays,
@@ -31,13 +31,17 @@ const formatDuration = (minutes: number) => {
   return hours > 0 ? `${hours}h ${remainder}m` : `${remainder}m`;
 };
 
-export function TimeEntryListItem({
+export const TimeEntryListItem = memo(function TimeEntryListItem({
   timeEntry,
   project,
   onUpdate,
   showProjectName = true,
 }: TimeEntryListItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  // Keep the native date controls out of the DOM for collapsed rows. Besides
+  // reducing React work, this is particularly important for Safari, where a
+  // large number of datetime-local inputs is costly to lay out.
+  const [editorMounted, setEditorMounted] = useState(false);
   const [startTime, setStartTime] = useState(
     format(timeEntry.startTime, "yyyy-MM-dd'T'HH:mm"),
   );
@@ -71,6 +75,13 @@ export function TimeEntryListItem({
     );
     setDescription(timeEntry.description || "");
     setIsExpanded(false);
+  };
+
+  const toggleExpanded = () => {
+    setIsExpanded((expanded) => {
+      if (!expanded) setEditorMounted(true);
+      return !expanded;
+    });
   };
 
   const handleSave = async () => {
@@ -128,11 +139,11 @@ export function TimeEntryListItem({
         role="button"
         tabIndex={0}
         aria-expanded={isExpanded}
-        onClick={() => setIsExpanded((expanded) => !expanded)}
+        onClick={toggleExpanded}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
-            setIsExpanded((expanded) => !expanded);
+            toggleExpanded();
           }
         }}
         className="flex cursor-pointer items-center gap-3 px-2 py-4 outline-none transition-transform duration-200 group-hover:translate-x-0.5 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-3"
@@ -203,8 +214,14 @@ export function TimeEntryListItem({
             ? "grid-rows-[1fr] opacity-100"
             : "grid-rows-[0fr] opacity-0",
         )}
+        onTransitionEnd={(event) => {
+          if (event.target === event.currentTarget && !isExpanded) {
+            setEditorMounted(false);
+          }
+        }}
       >
         <div className="overflow-hidden">
+          {editorMounted && (
           <div className="space-y-5 border-t border-border/50 px-3 pb-5 pt-4 sm:px-8">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
@@ -300,6 +317,7 @@ export function TimeEntryListItem({
               </Button>
             </div>
           </div>
+          )}
         </div>
       </div>
       <DeleteConfirmationDialog
@@ -311,4 +329,4 @@ export function TimeEntryListItem({
       />
     </article>
   );
-}
+});

@@ -2,19 +2,15 @@ import SwiftUI
 
 struct DashboardView: View {
     let projects: [TTProject]
-    let selectedProject: TTProject?
     let runningProjectID: TTProject.ID?
     let startedAt: Date?
     let carriedSeconds: TimeInterval
     let onToggleTimer: (TTProject) -> Void
-    let onSelectProject: (TTProject) -> Void
-    let onOpenProjects: () -> Void
     let onOpenProfile: () -> Void
 
     @State private var period: DashboardPeriod = .today
 
     private var runningProject: TTProject? { projects.first { $0.id == runningProjectID } }
-    private var displayedProject: TTProject? { runningProject ?? selectedProject }
     private var weeklyTotal: TimeInterval { projects.flatMap(\.sessions).reduce(0) { $0 + $1.duration } }
     private var maxProjectTotal: TimeInterval { max(projectTotals.map(\.total).max() ?? 1, 1) }
     private var projectTotals: [(project: TTProject, total: TimeInterval)] {
@@ -28,7 +24,19 @@ struct DashboardView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 22) {
                     topBar
-                    timerHero
+                    if runningProject != nil {
+                        timerHero
+                    } else {
+                        VStack(spacing: 8) {
+                            Text("Ready to focus")
+                                .font(.title2.weight(.semibold))
+                            Text("Tap a project to start tracking.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 32)
+                    }
                     // Activity reporting is intentionally hidden from the Focus screen for now.
                     // periodSelector
                     // activityCard
@@ -43,20 +51,8 @@ struct DashboardView: View {
 
     private var topBar: some View {
         HStack {
-            Button(action: onOpenProjects) {
-                HStack(spacing: 8) {
-                    Image(systemName: "square.grid.2x2")
-                    Text("All Projects")
-                    Image(systemName: "chevron.down").font(.caption.bold()).foregroundStyle(.secondary)
-                }
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.primary)
-                .padding(.horizontal, 15)
-                .frame(height: 46)
-                .background(.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .shadow(color: .black.opacity(0.05), radius: 12, y: 5)
-            }
-            .accessibilityLabel("Choose from all projects")
+            Text("Focus")
+                .font(.largeTitle.bold())
             Spacer()
             Button(action: onOpenProfile) {
                 Image(systemName: "person.crop.circle")
@@ -75,7 +71,7 @@ struct DashboardView: View {
         VStack(spacing: 14) {
             HStack(spacing: 7) {
                 Circle().fill(runningProject == nil ? Color.secondary : .brandBlue).frame(width: 8, height: 8)
-                Text(runningProject == nil ? "Ready to focus" : runningProject?.name ?? "Focus Session")
+                Text(runningProject == nil ? "Ready to focus" : "Tracking \(runningProject?.name ?? "Focus session")")
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.secondary)
             }
@@ -84,24 +80,32 @@ struct DashboardView: View {
                 Text(clockText)
                     .font(.system(size: 55, weight: .regular, design: .rounded))
                     .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
                     .contentTransition(.numericText())
             }
 
             Button {
-                if let displayedProject { onToggleTimer(displayedProject) }
+                if let runningProject { onToggleTimer(runningProject) }
             } label: {
-                ZStack {
+                VStack(spacing: 12) {
+                    ZStack {
                     Circle().stroke(Color.brandBlue.opacity(0.22), lineWidth: 7).frame(width: 92, height: 92)
                     Circle().fill(Color.brandBluePale.opacity(0.42)).frame(width: 68, height: 68)
                     Image(systemName: runningProject == nil ? "play.fill" : "stop.fill")
                         .font(.system(size: 22, weight: .bold))
                         .foregroundStyle(Color.brandNavy)
                         .contentTransition(.symbolEffect(.replace))
+                    }
+                    Text(runningProject == nil ? "Start focus" : "Stop focus")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.brandNavy)
                 }
             }
             .buttonStyle(.plain)
-            .disabled(displayedProject == nil)
-            .accessibilityLabel(runningProject == nil ? "Start timer" : "Stop timer")
+            .disabled(runningProject == nil)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(runningProject == nil ? "Start" : "Stop") timer for \(runningProject?.name ?? "project")")
         }
         .padding(.vertical, 4)
     }
@@ -162,9 +166,8 @@ struct DashboardView: View {
             .padding(.bottom, 2)
 
             ForEach(projectTotals, id: \.project.id) { item in
-                HStack(spacing: 12) {
-                    Button { onSelectProject(item.project) } label: {
-                        HStack(spacing: 12) {
+                Button { onToggleTimer(item.project) } label: {
+                    HStack(spacing: 12) {
                         Image(systemName: icon(for: item.project.name))
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(.primary.opacity(0.76))
@@ -179,29 +182,21 @@ struct DashboardView: View {
                             .font(.subheadline.weight(.medium))
                             .monospacedDigit()
                             .foregroundStyle(.secondary)
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-
-                    Button { onToggleTimer(item.project) } label: {
                         Image(systemName: runningProjectID == item.project.id ? "stop.fill" : "play.fill")
                             .font(.system(size: 13, weight: .bold))
                             .foregroundStyle(runningProjectID == item.project.id ? Color.red : Color.brandNavy)
-                            .frame(width: 38, height: 38)
+                            .frame(width: 44, height: 44)
                             .background(
                                 (runningProjectID == item.project.id ? Color.red : Color.brandBlue).opacity(0.10),
                                 in: Circle()
                             )
                             .contentTransition(.symbolEffect(.replace))
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(
-                        runningProjectID == item.project.id
-                            ? "Stop timer for \(item.project.name)"
-                            : "Start timer for \(item.project.name)"
-                    )
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(runningProjectID == item.project.id ? "Stop" : "Start") timer for \(item.project.name)")
+
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
                 .background(.white, in: RoundedRectangle(cornerRadius: 17, style: .continuous))
@@ -252,31 +247,5 @@ private extension View {
     func dashboardCard() -> some View {
         padding(18).background(.white, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
             .shadow(color: .black.opacity(0.035), radius: 16, y: 6)
-    }
-}
-
-struct ProjectPickerSheet: View {
-    let title: String
-    let projects: [TTProject]
-    let runningProjectID: TTProject.ID?
-    let onSelect: (TTProject) -> Void
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            List(projects) { project in
-                Button { onSelect(project) } label: {
-                    HStack(spacing: 14) {
-                        Circle().fill(project.accentColor).frame(width: 11, height: 11)
-                        Text(project.name).foregroundStyle(.primary)
-                        Spacer()
-                        if runningProjectID == project.id { Image(systemName: "timer").foregroundStyle(Color.brandNavy) }
-                    }.padding(.vertical, 7)
-                }
-            }
-            .navigationTitle(title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-        }
     }
 }

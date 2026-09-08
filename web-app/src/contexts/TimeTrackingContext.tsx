@@ -16,7 +16,6 @@ interface TimeTrackingContextValue {
   projects: Project[];
   projectsLoading: boolean;
   activeTimeEntry: TimeEntry | null;
-  elapsedTime: string;
   mostRecentlyUsedProject: Project | null;
   startTracking: (projectId: string) => Promise<void>;
   stopTracking: () => Promise<void>;
@@ -27,6 +26,34 @@ interface TimeTrackingContextValue {
 }
 
 const TimeTrackingContext = createContext<TimeTrackingContextValue | undefined>(undefined);
+const ElapsedTimeContext = createContext("");
+
+function ElapsedTimeProvider({
+  activeTimeEntry,
+  children,
+}: {
+  activeTimeEntry: TimeEntry | null;
+  children: React.ReactNode;
+}) {
+  const [elapsedTime, setElapsedTime] = useState("");
+
+  useEffect(() => {
+    if (!activeTimeEntry) {
+      setElapsedTime("");
+      return;
+    }
+    const updateElapsedTime = () => setElapsedTime(formatDistanceToNow(activeTimeEntry.startTime, { includeSeconds: true }));
+    updateElapsedTime();
+    const interval = setInterval(updateElapsedTime, 1000);
+    return () => clearInterval(interval);
+  }, [activeTimeEntry]);
+
+  return (
+    <ElapsedTimeContext.Provider value={elapsedTime}>
+      {children}
+    </ElapsedTimeContext.Provider>
+  );
+}
 
 export function TimeTrackingProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -34,7 +61,6 @@ export function TimeTrackingProvider({ children }: { children: React.ReactNode }
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [activeTimeEntry, setActiveTimeEntry] = useState<TimeEntry | null>(null);
   const [mostRecentTimeEntry, setMostRecentTimeEntry] = useState<TimeEntry | null>(null);
-  const [elapsedTime, setElapsedTime] = useState("");
 
   useEffect(() => {
     if (!user) {
@@ -64,17 +90,6 @@ export function TimeTrackingProvider({ children }: { children: React.ReactNode }
     }
     return subscribeToMostRecentTimeEntry(user.uid, setMostRecentTimeEntry);
   }, [user]);
-
-  useEffect(() => {
-    if (!activeTimeEntry) {
-      setElapsedTime("");
-      return;
-    }
-    const updateElapsedTime = () => setElapsedTime(formatDistanceToNow(activeTimeEntry.startTime, { includeSeconds: true }));
-    updateElapsedTime();
-    const interval = setInterval(updateElapsedTime, 1000);
-    return () => clearInterval(interval);
-  }, [activeTimeEntry]);
 
   const startTracking = useCallback(async (projectId: string) => {
     if (!user) return;
@@ -126,21 +141,35 @@ export function TimeTrackingProvider({ children }: { children: React.ReactNode }
 
   const getPinnedProjects = useCallback(() => projects.filter((project) => project.isPinned), [projects]);
 
+  const contextValue = useMemo(() => ({
+    projects,
+    projectsLoading,
+    activeTimeEntry,
+    mostRecentlyUsedProject,
+    startTracking,
+    stopTracking,
+    updateTimeEntryDescription,
+    updateTimeEntryFields,
+    getPinnedProjects,
+    createManualEntry,
+  }), [
+    activeTimeEntry,
+    createManualEntry,
+    getPinnedProjects,
+    mostRecentlyUsedProject,
+    projects,
+    projectsLoading,
+    startTracking,
+    stopTracking,
+    updateTimeEntryDescription,
+    updateTimeEntryFields,
+  ]);
+
   return (
-    <TimeTrackingContext.Provider value={{
-      projects,
-      projectsLoading,
-      activeTimeEntry,
-      elapsedTime,
-      mostRecentlyUsedProject,
-      startTracking,
-      stopTracking,
-      updateTimeEntryDescription,
-      updateTimeEntryFields,
-      getPinnedProjects,
-      createManualEntry,
-    }}>
-      {children}
+    <TimeTrackingContext.Provider value={contextValue}>
+      <ElapsedTimeProvider activeTimeEntry={activeTimeEntry}>
+        {children}
+      </ElapsedTimeProvider>
     </TimeTrackingContext.Provider>
   );
 }
@@ -149,4 +178,8 @@ export function useTimeTrackingContext() {
   const context = useContext(TimeTrackingContext);
   if (!context) throw new Error("useTimeTracking must be used within TimeTrackingProvider");
   return context;
+}
+
+export function useElapsedTimeContext() {
+  return useContext(ElapsedTimeContext);
 }

@@ -1,36 +1,40 @@
 import SwiftUI
 
 struct ContentView: View {
-    @State private var projects: [TTProject] = [
-        TTProject(name: "Product Design", accentColor: .brandNavy, sessions: makeSessions(count: 7)),
-        TTProject(name: "Development", accentColor: .brandBlueDeep, sessions: makeSessions(count: 5, spread: 2)),
-        TTProject(name: "Learning", accentColor: .brandBlue, sessions: makeSessions(count: 4, spread: 3)),
-        TTProject(name: "Meetings", accentColor: .brandBlueLight, sessions: makeSessions(count: 3, spread: 4))
-    ]
-    @State private var selectedProjectID: TTProject.ID?
-    @State private var runningProjectID: TTProject.ID?
-    @State private var startedAt: Date?
-    @State private var carriedSeconds: TimeInterval = 0
+    @StateObject private var store = FirebaseTimeTrackerStore()
     @State private var presentedSheet: DashboardSheet?
     @State private var selectedTab: AppTab = .focus
 
-    private var selectedProject: TTProject? {
-        projects.first { $0.id == (selectedProjectID ?? projects.first?.id) }
+    var body: some View {
+        Group {
+            if store.isRestoringSession {
+                ProgressView("Restoring your session…")
+            } else if store.user != nil {
+                tracker
+            } else {
+                AuthenticationView(store: store)
+            }
+        }
+        .alert("Something went wrong", isPresented: Binding(
+            get: { store.errorMessage != nil },
+            set: { if !$0 { store.errorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { store.errorMessage = nil }
+        } message: {
+            Text(store.errorMessage ?? "Please try again.")
+        }
     }
 
-    var body: some View {
+    private var tracker: some View {
         ZStack(alignment: .bottomTrailing) {
             TabView(selection: $selectedTab) {
                 NavigationStack {
                     DashboardView(
-                        projects: projects,
-                        selectedProject: selectedProject,
-                        runningProjectID: runningProjectID,
-                        startedAt: startedAt,
-                        carriedSeconds: carriedSeconds,
-                        onToggleTimer: toggleTimer,
-                        onSelectProject: { selectedProjectID = $0.id },
-                        onOpenProjects: { presentedSheet = .projects },
+                        projects: presentationProjects,
+                        runningProjectID: store.activeTimeEntry?.projectId,
+                        startedAt: store.activeTimeEntry?.startTime,
+                        carriedSeconds: 0,
+                        onToggleTimer: toggleTimer(for:),
                         onOpenProfile: { presentedSheet = .profile }
                     )
                 }
@@ -39,23 +43,23 @@ struct ContentView: View {
 
                 NavigationStack {
                     ProjectsView(
-                        projects: projects,
-                        runningProjectID: runningProjectID,
+                        projects: presentationProjects,
+                        runningProjectID: store.activeTimeEntry?.projectId,
                         onSelect: { project in
-                            selectedProjectID = project.id
+                            if store.activeTimeEntry?.projectId != project.id { toggleTimer(for: project) }
                             selectedTab = .focus
                         },
-                        onToggleTimer: toggleTimer
+                        onToggleTimer: toggleTimer(for:),
+                        onCreate: { presentedSheet = .newProject }
                     )
                 }
                 .tabItem { Label("Projects", systemImage: "square.grid.2x2") }
                 .tag(AppTab.projects)
 
-                NavigationStack { TimeEntriesView(projects: projects) }
+                NavigationStack { TimeEntriesView(projects: presentationProjects) }
                     .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
                     .tag(AppTab.history)
             }
-
             Button { presentedSheet = .quickStart } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 22, weight: .semibold))
@@ -64,59 +68,113 @@ struct ContentView: View {
                     .background(Color.brandNavy, in: Circle())
                     .shadow(color: Color.brandNavy.opacity(0.28), radius: 12, y: 6)
             }
-            .accessibilityLabel("Add")
+            .accessibilityLabel("Start a focus session")
             .padding(.trailing, 18)
             .padding(.bottom, 64)
         }
         .tint(.brandNavy)
         .sheet(item: $presentedSheet) { sheet in
             switch sheet {
-            case .projects, .quickStart:
-                ProjectPickerSheet(
-                    title: sheet == .quickStart ? "Start a focus session" : "All Projects",
-                    projects: projects,
-                    runningProjectID: runningProjectID,
-                    onSelect: { project in
-                        selectedProjectID = project.id
-                        selectedTab = .focus
-                        if sheet == .quickStart, runningProjectID != project.id {
-                            toggleTimer(project)
-                        }
-                        presentedSheet = nil
-                    }
-                )
+            case .newProject:
+                NewProjectSheet { name, color in
+                    Task { await store.createProject(name: name, color: color) }
+                    presentedSheet = nil
+                }
+            case .quickStart:
+                QuickStartSheet(projects: presentationProjects) { project in
+                    if store.activeTimeEntry?.projectId != project.id { toggleTimer(for: project) }
+                    selectedTab = .focus
+                    presentedSheet = nil
+                }
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
             case .profile:
-                ProfileView()
+                ProfileView(onSignOut: { Task { await store.signOut() } })
                     .presentationDetents([.medium])
                     .presentationDragIndicator(.visible)
             }
         }
-        .onAppear { selectedProjectID = selectedProjectID ?? projects.first?.id }
     }
 
-    private func toggleTimer(_ project: TTProject) {
-        if runningProjectID == project.id {
-            if let startedAt { carriedSeconds += Date().timeIntervalSince(startedAt) }
-            self.startedAt = nil
-            runningProjectID = nil
-        } else {
-            selectedProjectID = project.id
-            carriedSeconds = 0
-            runningProjectID = project.id
-            startedAt = Date()
+    private var presentationProjects: [TTProject] {
+        store.projects.map { project in
+            let sessions = store.timeEntries.compactMap { entry -> TTSession? in
+                guard entry.projectId == project.id, let endTime = entry.endTime else { return nil }
+                return TTSession(id: entry.id, date: endTime, duration: endTime.timeIntervalSince(entry.startTime))
+            }
+            return TTProject(
+                id: project.id,
+                name: project.name,
+                accentColor: Color(hex: project.color) ?? .brandBlue,
+                sessions: sessions
+            )
         }
+    }
+
+    private func toggleTimer(for project: TTProject) {
+        Task { await store.toggleTimer(for: project.id) }
     }
 }
 
 enum AppTab: Hashable { case focus, projects, history }
 
 enum DashboardSheet: String, Identifiable {
-    case projects
+    case newProject
     case quickStart
     case profile
     var id: String { rawValue }
+}
+
+private struct NewProjectSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+    @State private var color = "#136099"
+    let onSave: (String, String) -> Void
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField("Project name", text: $name)
+                TextField("Color (#RRGGBB)", text: $color)
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
+            }
+            .navigationTitle("New Project")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") { onSave(name, color) }
+                        .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || Color(hex: color) == nil)
+                }
+            }
+        }
+    }
+}
+
+private struct QuickStartSheet: View {
+    let projects: [TTProject]
+    let onSelect: (TTProject) -> Void
+
+    var body: some View {
+        NavigationStack {
+            List(projects) { project in
+                Button { onSelect(project) } label: {
+                    HStack(spacing: 14) {
+                        Circle().fill(project.accentColor).frame(width: 11, height: 11)
+                        Text(project.name).foregroundStyle(.primary)
+                    }
+                    .padding(.vertical, 7)
+                }
+            }
+            .overlay {
+                if projects.isEmpty {
+                    ContentUnavailableView("No projects yet", systemImage: "square.grid.2x2")
+                }
+            }
+            .navigationTitle("Start a focus session")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
 }
 
 #Preview { ContentView() }

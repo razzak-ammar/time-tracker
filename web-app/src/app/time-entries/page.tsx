@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import {
   endOfDay,
   endOfMonth,
@@ -37,6 +37,7 @@ const periodOptions = [
   { value: "this-month", label: "This month" },
   { value: "all", label: "All time" },
 ];
+const entriesPageSize = 50;
 
 const formatDuration = (milliseconds: number) => {
   const minutes = Math.round(milliseconds / 60_000);
@@ -50,11 +51,13 @@ export default function TimeEntriesPage() {
   const { entries: timeEntries, isLoading, error } =
     useTimeEntriesWithStatus();
   const [searchTerm, setSearchTerm] = useState("");
+  const deferredSearchTerm = useDeferredValue(searchTerm);
   const [selectedProject, setSelectedProject] = useState("all");
   const [timeFilter, setTimeFilter] = useState("past-7-days");
   const [previewDate, setPreviewDate] = useState<Date>();
   const [reportDate, setReportDate] = useState<Date>();
   const [manualEntryOpen, setManualEntryOpen] = useState(false);
+  const [visibleEntryCount, setVisibleEntryCount] = useState(entriesPageSize);
 
   const projectMap = useMemo(() => {
     const map = new Map<string, (typeof projects)[0]>();
@@ -65,8 +68,8 @@ export default function TimeEntriesPage() {
   const filteredEntries = useMemo(() => {
     let filtered = timeEntries;
 
-    if (searchTerm) {
-      const query = searchTerm.toLowerCase();
+    if (deferredSearchTerm) {
+      const query = deferredSearchTerm.toLowerCase();
       filtered = filtered.filter((entry) => {
         const project = projectMap.get(entry.projectId);
         return (
@@ -119,11 +122,23 @@ export default function TimeEntriesPage() {
   }, [
     projectMap,
     reportDate,
-    searchTerm,
+    deferredSearchTerm,
     selectedProject,
     timeEntries,
     timeFilter,
   ]);
+
+  // Return to the first page whenever the result set changes. The deferred
+  // search value keeps the input itself responsive while filtering a history.
+  useEffect(() => {
+    setVisibleEntryCount(entriesPageSize);
+  }, [deferredSearchTerm, reportDate, selectedProject, timeFilter]);
+
+  const visibleEntries = useMemo(
+    () => filteredEntries.slice(0, visibleEntryCount),
+    [filteredEntries, visibleEntryCount],
+  );
+  const hasMoreEntries = visibleEntries.length < filteredEntries.length;
 
   const totalTime = useMemo(() => {
     const now = new Date();
@@ -175,10 +190,12 @@ export default function TimeEntriesPage() {
 
           <Button
             onClick={() => setManualEntryOpen(true)}
-            className="group h-9 rounded-lg bg-foreground px-3 text-sm font-medium text-background shadow-none transition-[background-color,transform,box-shadow] hover:-translate-y-0.5 hover:bg-foreground/90 hover:shadow-md active:translate-y-0 sm:px-3.5"
+            className="group h-10 rounded-xl border border-emerald-300/30 bg-emerald-500 px-4 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(16,185,129,0.20)] transition-[background-color,transform,box-shadow] hover:-translate-y-0.5 hover:bg-emerald-400 hover:shadow-[0_12px_30px_rgba(16,185,129,0.28)] active:translate-y-0 active:shadow-sm"
             aria-label="Create a new time entry"
           >
-            <Plus className="mr-1.5 size-3.5 transition-transform duration-200 group-hover:rotate-90" />
+            <span className="mr-1.5 flex size-5 items-center justify-center rounded-md bg-white/15">
+              <Plus className="size-3.5 transition-transform duration-200 group-hover:rotate-90" />
+            </span>
             New entry
           </Button>
         </header>
@@ -322,7 +339,7 @@ export default function TimeEntriesPage() {
                     </span>
                   </div>
                   <div className="divide-y divide-border/60 border-y border-border/60">
-                    {filteredEntries.map((entry) => {
+                    {visibleEntries.map((entry) => {
                       const project = projectMap.get(entry.projectId);
                       if (!project) return null;
                       return (
@@ -334,6 +351,19 @@ export default function TimeEntriesPage() {
                       );
                     })}
                   </div>
+                  {hasMoreEntries && (
+                    <div className="mt-4 flex justify-center">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setVisibleEntryCount((count) => count + entriesPageSize)
+                        }
+                      >
+                        Load more entries
+                      </Button>
+                    </div>
+                  )}
                 </section>
               </div>
             )}

@@ -7,9 +7,16 @@
 
 import SwiftUI
 import SwiftData
+import FirebaseCore
 
 @main
 struct time_trackerApp: App {
+    init() {
+        if Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") != nil {
+            FirebaseApp.configure()
+        }
+    }
+
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Item.self,
@@ -25,9 +32,23 @@ struct time_trackerApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .preferredColorScheme(.light)
+            if FirebaseApp.app() == nil {
+                FirebaseSetupView()
+            } else {
+                ContentView()
+                    .preferredColorScheme(.light)
+            }
         }
         .modelContainer(sharedModelContainer)
+    }
+}
+
+private struct FirebaseSetupView: View {
+    var body: some View {
+        ContentUnavailableView(
+            "Firebase needs configuration",
+            systemImage: "bolt.horizontal.circle",
+            description: Text("Add the Firebase console's GoogleService-Info.plist to the app target, then run again.")
+        )
     }
 }

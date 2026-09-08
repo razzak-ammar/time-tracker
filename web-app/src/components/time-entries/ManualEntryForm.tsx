@@ -1,8 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { format } from "date-fns";
-import { CalendarDays, Check, Clock3, LoaderCircle } from "lucide-react";
+import { addDays, format } from "date-fns";
+import {
+  CalendarDays,
+  CalendarRange,
+  Check,
+  Clock3,
+  LoaderCircle,
+} from "lucide-react";
 import { useTimeTracking } from "@/hooks/useTimeTracking";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +50,8 @@ export function ManualEntryDialog({
     useTimeTracking();
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [endDate, setEndDate] = useState<Date>(new Date());
+  const [hasSeparateEndDate, setHasSeparateEndDate] = useState(false);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [description, setDescription] = useState("");
@@ -62,7 +70,10 @@ export function ManualEntryDialog({
 
   useEffect(() => {
     if (!open) return;
-    setSelectedDate(new Date());
+    const today = new Date();
+    setSelectedDate(today);
+    setEndDate(today);
+    setHasSeparateEndDate(false);
     setStartTime("");
     setEndTime("");
     setDescription("");
@@ -72,16 +83,20 @@ export function ManualEntryDialog({
   const duration = useMemo(() => {
     if (!startTime || !endTime) return null;
 
-    const date = format(selectedDate, "yyyy-MM-dd");
-    const start = new Date(`${date}T${startTime}`);
-    const end = new Date(`${date}T${endTime}`);
+    const startDate = format(selectedDate, "yyyy-MM-dd");
+    const resolvedEndDate = format(
+      hasSeparateEndDate ? endDate : selectedDate,
+      "yyyy-MM-dd",
+    );
+    const start = new Date(`${startDate}T${startTime}`);
+    const end = new Date(`${resolvedEndDate}T${endTime}`);
     if (end <= start) return null;
 
     const minutes = Math.round((end.getTime() - start.getTime()) / 60000);
     const hours = Math.floor(minutes / 60);
     const remainder = minutes % 60;
     return hours > 0 ? `${hours}h ${remainder}m` : `${remainder}m`;
-  }, [startTime, endTime, selectedDate]);
+  }, [endDate, endTime, hasSeparateEndDate, selectedDate, startTime]);
 
   const validateForm = () => {
     const nextErrors: typeof errors = {};
@@ -89,8 +104,14 @@ export function ManualEntryDialog({
     if (!startTime) nextErrors.startTime = "Choose a start time";
     if (!endTime) {
       nextErrors.endTime = "Choose an end time";
-    } else if (startTime && endTime <= startTime) {
-      nextErrors.endTime = "End time must be later";
+    } else if (startTime) {
+      const start = new Date(
+        `${format(selectedDate, "yyyy-MM-dd")}T${startTime}`,
+      );
+      const end = new Date(
+        `${format(hasSeparateEndDate ? endDate : selectedDate, "yyyy-MM-dd")}T${endTime}`,
+      );
+      if (end <= start) nextErrors.endTime = "End must be after the start";
     }
     if (!selectedProjectId) nextErrors.project = "Choose a project";
 
@@ -103,11 +124,15 @@ export function ManualEntryDialog({
 
     setLoading(true);
     try {
-      const date = format(selectedDate, "yyyy-MM-dd");
+      const startDate = format(selectedDate, "yyyy-MM-dd");
+      const resolvedEndDate = format(
+        hasSeparateEndDate ? endDate : selectedDate,
+        "yyyy-MM-dd",
+      );
       await createManualEntry(
         selectedProjectId,
-        new Date(`${date}T${startTime}`),
-        new Date(`${date}T${endTime}`),
+        new Date(`${startDate}T${startTime}`),
+        new Date(`${resolvedEndDate}T${endTime}`),
         description || undefined,
       );
       onEntryCreated?.();
@@ -153,7 +178,7 @@ export function ManualEntryDialog({
           <div className="manual-entry-field grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label className="text-sm font-medium text-foreground/90">
-                Date
+                {hasSeparateEndDate ? "Start date" : "Date"}
               </Label>
               <Popover>
                 <PopoverTrigger asChild>
@@ -172,7 +197,11 @@ export function ManualEntryDialog({
                   <Calendar
                     mode="single"
                     selected={selectedDate}
-                    onSelect={(date) => date && setSelectedDate(date)}
+                    onSelect={(date) => {
+                      if (!date) return;
+                      setSelectedDate(date);
+                      if (!hasSeparateEndDate) setEndDate(date);
+                    }}
                     initialFocus
                     className="rounded-xl"
                   />
@@ -219,19 +248,81 @@ export function ManualEntryDialog({
             </div>
           </div>
 
+          {hasSeparateEndDate && (
+            <div className="manual-entry-field space-y-2 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.04] p-3.5">
+              <Label className="text-sm font-medium text-foreground/90">
+                End date
+              </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="group h-11 w-full justify-start rounded-lg border-border bg-background px-3 text-left text-sm font-normal text-foreground shadow-none transition-[background-color,border-color] hover:border-emerald-500/35 hover:bg-muted/35"
+                  >
+                    <CalendarDays className="mr-2.5 size-4 text-emerald-500" />
+                    {format(endDate, "EEE, MMM d, yyyy")}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="z-[70] w-auto rounded-2xl border-border bg-[hsl(var(--popover))] p-1 text-[hsl(var(--popover-foreground))] shadow-2xl"
+                  align="start"
+                >
+                  <Calendar
+                    mode="single"
+                    selected={endDate}
+                    onSelect={(date) => date && setEndDate(date)}
+                    initialFocus
+                    className="rounded-xl"
+                  />
+                </PopoverContent>
+              </Popover>
+              <p className="text-xs text-muted-foreground">
+                Use a separate date for overnight or multi-day work.
+              </p>
+            </div>
+          )}
+
           <div className="manual-entry-field space-y-2">
             <div className="flex items-center justify-between">
               <Label className="text-sm font-medium text-foreground/90">
                 Time range
               </Label>
-              {duration && (
-                <span
-                  key={duration}
-                  className="manual-entry-duration rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold tabular-nums text-emerald-500"
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-pressed={hasSeparateEndDate}
+                  onClick={() => {
+                    const nextHasSeparateEndDate = !hasSeparateEndDate;
+                    if (nextHasSeparateEndDate && endDate <= selectedDate) {
+                      setEndDate(addDays(selectedDate, 1));
+                    }
+                    if (!nextHasSeparateEndDate) setEndDate(selectedDate);
+                    setHasSeparateEndDate(nextHasSeparateEndDate);
+                    setErrors((current) => ({
+                      ...current,
+                      endTime: undefined,
+                    }));
+                  }}
+                  className={cn(
+                    "h-8 rounded-full px-2.5 text-xs font-medium text-muted-foreground transition-[background-color,color] hover:bg-muted hover:text-foreground",
+                    hasSeparateEndDate &&
+                      "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/15 hover:text-emerald-500",
+                  )}
                 >
-                  {duration}
-                </span>
-              )}
+                  <CalendarRange className="mr-1.5 size-3.5" />
+                  {hasSeparateEndDate ? "Separate dates" : "Ends another day"}
+                </Button>
+                {duration && (
+                  <span
+                    key={duration}
+                    className="manual-entry-duration rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold tabular-nums text-emerald-500"
+                  >
+                    {duration}
+                  </span>
+                )}
+              </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">

@@ -221,7 +221,7 @@ export function TimeEntriesCalendarSidebar({
                       month: "flex w-full flex-col gap-3",
                       day: "relative aspect-square w-full p-0 text-center select-none",
                       today:
-                        "rounded-md bg-primary/8 font-semibold text-primary data-[selected=true]:rounded-md",
+                        "font-semibold",
                       outside: "text-muted-foreground/45",
                     }}
                   />

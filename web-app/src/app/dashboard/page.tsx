@@ -1,6 +1,6 @@
 "use client";
 
-import { useTimeTracking } from "@/hooks/useTimeTracking";
+import { useElapsedTime, useTimeTracking } from "@/hooks/useTimeTracking";
 import { ProjectList } from "@/components/projects/ProjectList";
 import { ActiveTimer } from "@/components/dashboard/ActiveTimer";
 import { FullScreenTimer } from "@/components/dashboard/FullScreenTimer";
@@ -15,7 +15,8 @@ export default function DashboardPage() {
   const [fullScreenTimerOpen, setFullScreenTimerOpen] = useState(false);
   const hadActiveEntryRef = useRef(false);
 
-  const { projects, activeTimeEntry, elapsedTime } = useTimeTracking();
+  const { projects, activeTimeEntry } = useTimeTracking();
+  const elapsedTime = useElapsedTime();
   const projectSummaries = useProjectSummaries();
 
   // Auto-open full-screen timer when a timer becomes active (e.g. user just started one)

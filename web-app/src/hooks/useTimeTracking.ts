@@ -2,12 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTimeTrackingContext } from "@/contexts/TimeTrackingContext";
+import {
+  useElapsedTimeContext,
+  useTimeTrackingContext,
+} from "@/contexts/TimeTrackingContext";
 import { TimeEntry } from "@/types";
 import { subscribeToTimeEntries } from "@/lib/firebase-service";
 
 export function useTimeTracking() {
   return useTimeTrackingContext();
+}
+
+/** Subscribe only to the live elapsed label, avoiding timer-driven rerenders
+ * in screens that only need projects or tracking actions. */
+export function useElapsedTime() {
+  return useElapsedTimeContext();
 }
 
 /**

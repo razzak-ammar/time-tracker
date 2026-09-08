@@ -48,7 +48,7 @@ enum TimeRange: String, CaseIterable, Identifiable {
 // MARK: - Summary model
 
 struct ProjectSummary: Identifiable {
-    let id: UUID
+    let id: String
     let name: String
     let color: Color
     let totalSeconds: TimeInterval
@@ -60,7 +60,7 @@ struct TimeEntriesView: View {
     let projects: [TTProject]
 
     @State private var selectedRange: TimeRange = .last7Days
-    @State private var highlightedID: UUID? = nil
+    @State private var highlightedID: String? = nil
 
     // MARK: Derived data
 

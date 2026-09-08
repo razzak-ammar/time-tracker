@@ -15,16 +15,29 @@ import AppKit
 // MARK: - Models (internal so TimeEntriesView can use them)
 
 struct TTSession: Identifiable {
-    let id = UUID()
+    let id: String
     let date: Date
     let duration: TimeInterval  // seconds
+
+    init(id: String = UUID().uuidString, date: Date, duration: TimeInterval) {
+        self.id = id
+        self.date = date
+        self.duration = duration
+    }
 }
 
 struct TTProject: Identifiable, Hashable {
-    let id = UUID()
+    let id: String
     let name: String
     let accentColor: Color
     let sessions: [TTSession]
+
+    init(id: String = UUID().uuidString, name: String, accentColor: Color, sessions: [TTSession]) {
+        self.id = id
+        self.name = name
+        self.accentColor = accentColor
+        self.sessions = sessions
+    }
 
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
     static func == (lhs: TTProject, rhs: TTProject) -> Bool { lhs.id == rhs.id }

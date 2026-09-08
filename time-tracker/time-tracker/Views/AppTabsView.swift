@@ -5,6 +5,7 @@ struct ProjectsView: View {
     let runningProjectID: TTProject.ID?
     let onSelect: (TTProject) -> Void
     let onToggleTimer: (TTProject) -> Void
+    let onCreate: () -> Void
 
     var body: some View {
         ScrollView {
@@ -45,11 +46,15 @@ struct ProjectsView: View {
         }
         .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle("Projects")
+        .toolbar {
+            Button(action: onCreate) { Label("New Project", systemImage: "plus") }
+        }
     }
 }
 
 struct ProfileView: View {
     @Environment(\.dismiss) private var dismiss
+    let onSignOut: () -> Void
 
     var body: some View {
         NavigationStack {
@@ -67,7 +72,12 @@ struct ProfileView: View {
             .padding(.top, 32)
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Sign Out", role: .destructive, action: onSignOut)
+                }
+                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+            }
         }
     }
 }
