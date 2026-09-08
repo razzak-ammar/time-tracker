@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import type { Project, TimeEntry } from "@/types";
 
 interface TimeBreakdownChartProps {
@@ -21,7 +21,7 @@ const formatDuration = (minutes: number) => {
   return hours > 0 ? `${hours}h ${remainder}m` : `${remainder}m`;
 };
 
-export function TimeBreakdownChart({
+export const TimeBreakdownChart = memo(function TimeBreakdownChart({
   entries,
   projectMap,
 }: TimeBreakdownChartProps) {
@@ -103,4 +103,4 @@ export function TimeBreakdownChart({
       </div>
     </section>
   );
-}
+});

@@ -88,7 +88,7 @@ interface TimeEntriesCalendarSidebarProps {
   isLoading?: boolean;
 }
 
-export function TimeEntriesCalendarSidebar({
+export const TimeEntriesCalendarSidebar = React.memo(function TimeEntriesCalendarSidebar({
   entries,
   projects,
   selectedDate,
@@ -326,4 +326,4 @@ export function TimeEntriesCalendarSidebar({
       )}
     </aside>
   );
-}
+});

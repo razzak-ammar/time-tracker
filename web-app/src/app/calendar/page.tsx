@@ -193,7 +193,7 @@ export default function CalendarPage() {
             onUpdateEntry={updateTimeEntryFields}
           />
         ) : (
-          <div className="flex-1 min-h-0 min-w-0 flex flex-col rounded-xl bg-card/60 backdrop-blur-sm overflow-hidden">
+          <div className="flex-1 min-h-0 min-w-0 flex flex-col rounded-xl bg-card/90 overflow-hidden">
             {/* Day column headers - sticky; same flex structure as timeline so they align */}
             <div className="flex shrink-0 border-b border-border/60 bg-muted/30">
               <div className="w-16 shrink-0" />

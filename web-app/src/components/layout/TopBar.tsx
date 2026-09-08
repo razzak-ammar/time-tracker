@@ -33,7 +33,7 @@ export function TopBar() {
   };
 
   return (
-    <div className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-background/80 dark:bg-gray-950/80 backdrop-blur-sm shrink-0">
+    <div className="flex shrink-0 items-center justify-center gap-2 bg-background px-3 py-2 dark:bg-gray-950 sm:px-4">
       <div className="flex-1 min-w-0" aria-hidden />
       <div className="flex-shrink-0 min-w-0 overflow-x-auto scrollbar-hide justify-center">
         <TabBar />

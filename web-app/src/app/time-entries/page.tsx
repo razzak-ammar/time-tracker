@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   endOfDay,
   endOfMonth,
@@ -38,6 +38,7 @@ const periodOptions = [
   { value: "all", label: "All time" },
 ];
 const entriesPageSize = 50;
+const searchDelayMs = 140;
 
 const formatDuration = (milliseconds: number) => {
   const minutes = Math.round(milliseconds / 60_000);
@@ -46,12 +47,53 @@ const formatDuration = (milliseconds: number) => {
   return hours > 0 ? `${hours}h ${remainder}m` : `${remainder}m`;
 };
 
+function EntrySearch({
+  onSearchChange,
+}: {
+  onSearchChange: (value: string) => void;
+}) {
+  const [value, setValue] = useState("");
+
+  useEffect(() => {
+    const timeout = window.setTimeout(
+      () => onSearchChange(value.trim()),
+      searchDelayMs,
+    );
+    return () => window.clearTimeout(timeout);
+  }, [onSearchChange, value]);
+
+  return (
+    <div className="relative">
+      <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      <Input
+        aria-label="Search entries"
+        placeholder="Search entries"
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        className="h-10 rounded-lg border-border/70 bg-background pl-10 pr-9 shadow-none transition-[border-color,box-shadow] focus-visible:border-foreground/30 focus-visible:ring-2 focus-visible:ring-foreground/5"
+      />
+      {value && (
+        <button
+          type="button"
+          onClick={() => {
+            setValue("");
+            onSearchChange("");
+          }}
+          className="absolute right-2 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          aria-label="Clear search"
+        >
+          <X className="size-3.5" />
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function TimeEntriesPage() {
   const { projects } = useTimeTracking();
   const { entries: timeEntries, isLoading, error } =
     useTimeEntriesWithStatus();
   const [searchTerm, setSearchTerm] = useState("");
-  const deferredSearchTerm = useDeferredValue(searchTerm);
   const [selectedProject, setSelectedProject] = useState("all");
   const [timeFilter, setTimeFilter] = useState("past-7-days");
   const [previewDate, setPreviewDate] = useState<Date>();
@@ -68,8 +110,8 @@ export default function TimeEntriesPage() {
   const filteredEntries = useMemo(() => {
     let filtered = timeEntries;
 
-    if (deferredSearchTerm) {
-      const query = deferredSearchTerm.toLowerCase();
+    if (searchTerm) {
+      const query = searchTerm.toLowerCase();
       filtered = filtered.filter((entry) => {
         const project = projectMap.get(entry.projectId);
         return (
@@ -122,17 +164,16 @@ export default function TimeEntriesPage() {
   }, [
     projectMap,
     reportDate,
-    deferredSearchTerm,
+    searchTerm,
     selectedProject,
     timeEntries,
     timeFilter,
   ]);
 
-  // Return to the first page whenever the result set changes. The deferred
-  // search value keeps the input itself responsive while filtering a history.
+  // Return to the first page whenever the result set changes.
   useEffect(() => {
     setVisibleEntryCount(entriesPageSize);
-  }, [deferredSearchTerm, reportDate, selectedProject, timeFilter]);
+  }, [searchTerm, reportDate, selectedProject, timeFilter]);
 
   const visibleEntries = useMemo(
     () => filteredEntries.slice(0, visibleEntryCount),
@@ -239,25 +280,7 @@ export default function TimeEntriesPage() {
         </div>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px]">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search entries"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              className="h-10 rounded-lg border-border/70 bg-background pl-10 pr-9 shadow-none transition-[border-color,box-shadow] focus-visible:border-foreground/30 focus-visible:ring-2 focus-visible:ring-foreground/5"
-            />
-            {searchTerm && (
-              <button
-                type="button"
-                onClick={() => setSearchTerm("")}
-                className="absolute right-2 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                aria-label="Clear search"
-              >
-                <X className="size-3.5" />
-              </button>
-            )}
-          </div>
+          <EntrySearch onSearchChange={setSearchTerm} />
 
           <Select value={selectedProject} onValueChange={setSelectedProject}>
             <SelectTrigger className="h-10 w-full rounded-lg border-border/70 bg-background text-sm shadow-none">
