@@ -1,4 +1,6 @@
 import { initializeApp } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
+import { createAgentApiHandler } from "./agent-api.js";
 import {
   FieldPath,
   FieldValue,
@@ -8,7 +10,7 @@ import {
 } from "firebase-admin/firestore";
 import { logger } from "firebase-functions";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
-import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
 import { randomUUID } from "node:crypto";
 import {
   Contribution,
@@ -19,6 +21,11 @@ import {
 initializeApp();
 
 const db = getFirestore();
+
+export const agentApi = onRequest(
+  { region: "us-central1", invoker: "public", cors: false, maxInstances: 10 },
+  createAgentApiHandler(db, (token) => getAuth().verifyIdToken(token, true)),
+);
 const SCHEMA_VERSION = 1;
 const TRASH_RETENTION_DAYS = 30;
 const PAGE_SIZE = 400;

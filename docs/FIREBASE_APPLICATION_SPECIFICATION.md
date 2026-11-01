@@ -4,7 +4,7 @@
 
 This document describes the behavior and Firebase contract implemented by the web application in `web-app/`. It is intended to let another client—for example, an iOS/Xcode app—implement compatible functionality against the same Firebase project without depending on the web UI or its TypeScript code.
 
-The source of truth for persisted data is Cloud Firestore. Firebase Authentication supplies the authenticated user identity. The repository includes Cloud Functions for aggregation and trusted recoverable-deletion operations, which must be deployed before clients use those workflows. There is no conventional server/API layer, Firebase Storage, or user-profile writes.
+The source of truth for persisted data is Cloud Firestore. Firebase Authentication supplies the authenticated user identity. The repository includes Cloud Functions for aggregation and trusted recoverable-deletion operations, which must be deployed before clients use those workflows. An optional HTTP agent API provides two resource families (`/projects` and `/events`) through the `agentApi` Cloud Function. See [AGENT_API.md](./AGENT_API.md) and the [OpenAPI contract](./agent-api.openapi.json) for deployment, authentication, operations, and examples. There is no Firebase Storage or user-profile write support.
 
 ## Firebase services and configuration
 
@@ -12,7 +12,7 @@ The source of truth for persisted data is Cloud Firestore. Firebase Authenticati
 | --- | --- |
 | Firebase Authentication | Email/password account creation, sign-in, sign-out, and auth-state observation. |
 | Cloud Firestore | Projects and time-entry persistence, one-shot reads, and real-time listeners. |
-| Cloud Functions (2nd gen) | Trusted `timeEntries` aggregation worker plus callable trash/restore/purge operations. |
+| Cloud Functions (2nd gen) | Trusted `timeEntries` aggregation worker, callable trash/restore/purge operations, and authenticated `agentApi` HTTP routes. |
 
 The web client initializes Firebase using these public environment values: `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`, `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`, and `NEXT_PUBLIC_FIREBASE_APP_ID`.
 
