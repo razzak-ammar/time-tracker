@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "TimeTracker Agent API",
-    "version": "1.0.0",
-    "description": "Authenticated project and time-entry management. Events map to Firestore timeEntries. See AGENT_API.md for authentication, pagination, retries, deployment and examples. Lists scan bounded pages then apply filters; continue through empty pages until nextCursor is null. No project delete, restore, or permanent delete HTTP operations."
+    "version": "1.1.0",
+    "description": "Authenticated project and time-entry management. Events map to Firestore timeEntries. See AGENT_API.md for authentication, pagination, retries, deployment and examples. Event filters run as indexed Firestore queries; isActive combined with other filters is applied per page, so continue through empty pages until nextCursor is null. PATCH and event DELETE accept an optional If-Match precondition (the record's updatedAt). At most one non-deleted active timer exists per user. No project delete, restore, or permanent delete HTTP operations."
   },
   "servers": [
     {
@@ -70,18 +70,18 @@
               "maximum": 200,
               "default": 100
             },
-            "description": "Maximum documents scanned per page before filtering."
+            "description": "Maximum documents read per page; in-memory filters (trash, and isActive combined with other filters) may return fewer."
           },
           {
             "name": "cursor",
             "in": "query",
             "schema": {
               "type": "string",
-              "pattern": "^[A-Za-z0-9_-]{1,128}$",
+              "pattern": "^[A-Za-z0-9_-]{1,1024}$",
               "minLength": 1,
-              "maxLength": 128
+              "maxLength": 1024
             },
-            "description": "Previous nextCursor; keep all filters unchanged."
+            "description": "Opaque nextCursor from the previous page of the same list; keep all filters unchanged."
           },
           {
             "name": "includeDeleted",
@@ -238,6 +238,9 @@
           "409": {
             "$ref": "#/components/responses/Error409"
           },
+          "412": {
+            "$ref": "#/components/responses/Error412"
+          },
           "413": {
             "$ref": "#/components/responses/Error413"
           },
@@ -258,7 +261,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          }
+        ]
       }
     },
     "/events": {
@@ -270,7 +278,7 @@
         ],
         "responses": {
           "200": {
-            "description": "A page ordered by document ID ascending; may be empty with a non-null nextCursor.",
+            "description": "A page ordered by startTime descending, then ID descending (isActive alone: document ID ascending). May be empty with a non-null nextCursor.",
             "content": {
               "application/json": {
                 "schema": {
@@ -314,18 +322,18 @@
               "maximum": 200,
               "default": 100
             },
-            "description": "Maximum documents scanned per page before filtering."
+            "description": "Maximum documents read per page; in-memory filters (trash, and isActive combined with other filters) may return fewer."
           },
           {
             "name": "cursor",
             "in": "query",
             "schema": {
               "type": "string",
-              "pattern": "^[A-Za-z0-9_-]{1,128}$",
+              "pattern": "^[A-Za-z0-9_-]{1,1024}$",
               "minLength": 1,
-              "maxLength": 128
+              "maxLength": 1024
             },
-            "description": "Previous nextCursor; keep all filters unchanged."
+            "description": "Opaque nextCursor from the previous page of the same list; keep all filters unchanged."
           },
           {
             "name": "includeDeleted",
@@ -353,7 +361,7 @@
             "schema": {
               "type": "boolean"
             },
-            "description": "Filter by timer state."
+            "description": "Filter by timer state. Alone it is an indexed query; combined with projectId/from/to it is applied per page."
           },
           {
             "name": "from",
@@ -521,6 +529,9 @@
           "409": {
             "$ref": "#/components/responses/Error409"
           },
+          "412": {
+            "$ref": "#/components/responses/Error412"
+          },
           "413": {
             "$ref": "#/components/responses/Error413"
           },
@@ -541,7 +552,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          }
+        ]
       },
       "delete": {
         "operationId": "deleteEvent",
@@ -568,6 +584,9 @@
           "409": {
             "$ref": "#/components/responses/Error409"
           },
+          "412": {
+            "$ref": "#/components/responses/Error412"
+          },
           "413": {
             "$ref": "#/components/responses/Error413"
           },
@@ -577,7 +596,12 @@
           "500": {
             "$ref": "#/components/responses/Error500"
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          }
+        ]
       }
     }
   },
@@ -717,7 +741,7 @@
           "nextCursor": {
             "type": "string",
             "nullable": true,
-            "description": "Last scanned ID. Continue even if data is empty; stop only at null."
+            "description": "Opaque URL-safe cursor. Continue even if data is empty; stop only at null."
           }
         }
       },
@@ -882,7 +906,7 @@
           "nextCursor": {
             "type": "string",
             "nullable": true,
-            "description": "Last scanned ID. Continue even if data is empty; stop only at null."
+            "description": "Opaque URL-safe cursor. Continue even if data is empty; stop only at null."
           }
         }
       },
@@ -952,7 +976,17 @@
         }
       },
       "Error409": {
-        "description": "ID already exists or resource/project is in trash.",
+        "description": "already_exists: ID already exists; resource_deleted: resource/project is in trash; active_timer_exists: another non-deleted active event exists for this user (create/patch with isActive true).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Error412": {
+        "description": "precondition_failed: If-Match does not equal the record's current updatedAt. Read it again before retrying.",
         "content": {
           "application/json": {
             "schema": {
@@ -990,6 +1024,17 @@
             }
           }
         }
+      }
+    },
+    "parameters": {
+      "IfMatch": {
+        "name": "If-Match",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Optional optimistic-concurrency precondition: the updatedAt value from your last read (ISO 8601, optionally in double quotes; * disables the check). On mismatch the request fails with 412 precondition_failed and nothing is written. Omit to keep last-writer-wins."
       }
     }
   }

@@ -108,6 +108,40 @@ function available(data: FirebaseFirestore.DocumentData): void {
   if (data.deletedAt != null) throw new ApiError(409, "resource_deleted", "Resource is in Recently Deleted. Restore it in the app first.");
 }
 
+// Opaque, URL-safe cursors: base64url JSON of the last document's sort key.
+// "t" pages by (startTime DESC, ID DESC); "d" pages by document ID ascending.
+type Cursor = ["t", number, number, string] | ["d", string];
+
+function encodeCursor(doc: FirebaseFirestore.QueryDocumentSnapshot, kind: Cursor[0]): string {
+  if (kind === "d") return Buffer.from(JSON.stringify(["d", doc.id])).toString("base64url");
+  const start = doc.get("startTime");
+  if (!(start instanceof Timestamp)) throw new Error(`Event ${doc.id} has a non-timestamp startTime.`);
+  return Buffer.from(JSON.stringify(["t", start.seconds, start.nanoseconds, doc.id])).toString("base64url");
+}
+
+function decodeCursor(value: string, kind: Cursor[0]): Cursor {
+  let cursor: unknown;
+  try {
+    if (!/^[A-Za-z0-9_-]{1,1024}$/.test(value)) throw new Error("Not base64url");
+    cursor = JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
+  } catch {
+    invalid("cursor must be a nextCursor value returned by this API.");
+  }
+  const valid = Array.isArray(cursor) && cursor[0] === kind && (kind === "d"
+    ? cursor.length === 2 && typeof cursor[1] === "string"
+    : cursor.length === 4 && Number.isSafeInteger(cursor[1]) && Number.isInteger(cursor[2]) &&
+      cursor[2] >= 0 && cursor[2] < 1e9 && typeof cursor[3] === "string");
+  if (!valid) invalid("cursor does not match these filters; restart without cursor.");
+  id((cursor as Cursor).at(-1));
+  return cursor as Cursor;
+}
+
+/** Parses If-Match (the record's updatedAt, optionally quoted); undefined means no check. */
+function precondition(header: string | undefined): number | undefined {
+  if (header === undefined || header.trim() === "*") return undefined;
+  return date(header.trim().replace(/^"(.*)"$/, "$1"), "If-Match").toMillis();
+}
+
 function serialize(snapshot: FirebaseFirestore.DocumentSnapshot): Record<string, unknown> {
   const data = snapshot.data()!;
   // Explicit projection avoids accidentally exposing future internal fields.
@@ -146,8 +180,8 @@ export function createAgentApiHandler(
         throw new ApiError(405, "method_not_allowed", `Allowed methods: ${methods}.`);
       }
       if (req.method === "GET" && !resourceId) {
-        // Document-ID ordering avoids new composite indexes. Pagination is bounded
-        // even when a page contains only hidden/deleted or filtered documents.
+        // Filters run in Firestore against firestore.indexes.json. Pagination stays
+        // bounded when a page holds only trash or in-memory-filtered documents.
         allowedFields(req.query, resource === "events" ? ["limit", "cursor", "includeDeleted", "projectId", "from", "to", "isActive"] : ["limit", "cursor", "includeDeleted"]);
         const scalar = (key: string): string | undefined => {
           const value = req.query[key];
@@ -163,28 +197,39 @@ export function createAgentApiHandler(
         const rawLimit = scalar("limit") ?? "100";
         if (!/^\d+$/.test(rawLimit) || +rawLimit < 1 || +rawLimit > 200) invalid("limit must be an integer from 1 to 200.");
         const limit = +rawLimit;
-        const cursor = scalar("cursor");
-        if (cursor !== undefined) id(cursor);
+        const rawCursor = scalar("cursor");
         const includeDeleted = boolean("includeDeleted") ?? false;
         const projectId = scalar("projectId");
         if (projectId !== undefined) id(projectId);
         const isActive = boolean("isActive");
-        const from = scalar("from") === undefined ? undefined : date(scalar("from"), "from").toMillis();
-        const to = scalar("to") === undefined ? undefined : date(scalar("to"), "to").toMillis();
-        if (from !== undefined && to !== undefined && from >= to) invalid("from must be earlier than to.");
-        let query = collection.where("userId", "==", uid).orderBy(FieldPath.documentId()).limit(limit);
-        if (cursor !== undefined) query = query.startAfter(cursor);
-        const page = await query.get();
+        const from = scalar("from") === undefined ? undefined : date(scalar("from"), "from");
+        const to = scalar("to") === undefined ? undefined : date(scalar("to"), "to");
+        if (from !== undefined && to !== undefined && from.toMillis() >= to.toMillis()) invalid("from must be earlier than to.");
+        let query = collection.where("userId", "==", uid);
+        // Index (userId, isActive) serves isActive alone; every other event list uses
+        // (userId[, projectId], startTime DESC) and filters isActive in memory.
+        const kind: Cursor[0] = resource === "events" && (isActive === undefined || projectId !== undefined ||
+          from !== undefined || to !== undefined) ? "t" : "d";
+        const filterActive = kind === "t" && isActive !== undefined;
+        if (kind === "d") {
+          if (isActive !== undefined) query = query.where("isActive", "==", isActive);
+          query = query.orderBy(FieldPath.documentId());
+        } else {
+          if (projectId !== undefined) query = query.where("projectId", "==", projectId);
+          if (from !== undefined) query = query.where("startTime", ">=", from);
+          if (to !== undefined) query = query.where("startTime", "<", to);
+          query = query.orderBy("startTime", "desc").orderBy(FieldPath.documentId(), "desc");
+        }
+        if (rawCursor !== undefined) {
+          const cursor = decodeCursor(rawCursor, kind);
+          query = cursor[0] === "d" ? query.startAfter(cursor[1]) : query.startAfter(new Timestamp(cursor[1], cursor[2]), cursor[3]);
+        }
+        const page = await query.limit(limit).get();
         const data = page.docs.filter((doc) => {
           const entry = doc.data();
-          const start = entry.startTime instanceof Timestamp ? entry.startTime.toMillis() : undefined;
-          return (includeDeleted || entry.deletedAt == null) &&
-            (projectId === undefined || entry.projectId === projectId) &&
-            (isActive === undefined || entry.isActive === isActive) &&
-            (from === undefined || (start !== undefined && start >= from)) &&
-            (to === undefined || (start !== undefined && start < to));
+          return (includeDeleted || entry.deletedAt == null) && (!filterActive || entry.isActive === isActive);
         }).map(serialize);
-        res.status(200).json({ data, nextCursor: page.size === limit ? page.docs.at(-1)!.id : null });
+        res.status(200).json({ data, nextCursor: page.size === limit ? encodeCursor(page.docs.at(-1)!, kind) : null });
         return;
       }
       if (req.method === "GET") {
@@ -203,6 +248,7 @@ export function createAgentApiHandler(
       const ref = collection.doc(create ? (body.id === undefined ? randomUUID() : id(body.id)) : resourceId!);
       const fields = req.method === "DELETE" ? {} : resource === "projects" ? projectFields(body, create) : eventFields(body, create);
       if (req.method === "PATCH" && Object.keys(fields).length === 0) invalid("Supply at least one editable field.");
+      const expectedUpdatedAt = create ? undefined : precondition(req.get("If-Match"));
       await db.runTransaction(async (transaction) => {
         const snapshot = await transaction.get(ref);
         const now = Timestamp.now();
@@ -211,8 +257,14 @@ export function createAgentApiHandler(
           throw new ApiError(409, "already_exists", "ID already exists. Choose another ID; do not retry with a new ID after an ambiguous response without first checking your original ID.");
         }
         const existing = create ? {} : owned(snapshot, uid);
+        // Retried deletes stay 204 even though the first attempt changed updatedAt.
+        if (req.method === "DELETE" && existing.deletedAt != null) return;
+        if (req.method !== "DELETE") available(existing);
+        if (expectedUpdatedAt !== undefined &&
+          !(existing.updatedAt instanceof Timestamp && existing.updatedAt.toMillis() === expectedUpdatedAt)) {
+          throw new ApiError(412, "precondition_failed", "Resource changed since it was read (If-Match does not equal updatedAt). Read it again before retrying.");
+        }
         if (req.method === "DELETE") {
-          if (existing.deletedAt != null) return; // retry-safe soft deletion
           transaction.update(ref, {
             deletedAt: now,
             purgeAt: Timestamp.fromMillis(now.toMillis() + 30 * 86400000),
@@ -221,12 +273,19 @@ export function createAgentApiHandler(
           });
           return;
         }
-        available(existing);
         const merged = { ...existing, ...fields };
         if (resource === "events") {
           validateRange(merged);
           const project = await transaction.get(db.collection("projects").doc(merged.projectId as string));
           available(owned(project, uid));
+          if (fields.isActive === true) {
+            // Read inside the transaction so concurrent starts cannot both succeed.
+            const active = await transaction.get(collection.where("userId", "==", uid).where("isActive", "==", true));
+            const other = active.docs.find((doc) => doc.id !== ref.id && doc.get("deletedAt") == null);
+            if (other) {
+              throw new ApiError(409, "active_timer_exists", `Another timer is already running (event ${other.id}). Stop it before starting another.`);
+            }
+          }
         }
         if (create) {
           transaction.create(ref, { ...fields, userId: uid, createdAt: now, updatedAt: now });

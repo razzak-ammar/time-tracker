@@ -45,7 +45,9 @@ Append `/projects` or `/events` to that URL. Use the URL printed by Firebase if
 it differs. Deploy the existing `aggregateTimeEntry` function too if this is a
 new backend; it updates reporting totals asynchronously. Configure Firestore
 TTL for `purgeAt` as described in the recovery runbook before relying on
-automatic trash expiry. The agent API needs no additional indexes or secrets.
+automatic trash expiry. The agent API needs no secrets. Its list queries use the
+`timeEntries` composite indexes in `firestore.indexes.json`; deploy them
+(`firebase deploy --only firestore:indexes`) before the function on a new backend.
 Deployment is a separate step; adding this code does not make the endpoint live.
 
 The function accepts public HTTP invocation at the infrastructure layer and
@@ -139,9 +141,26 @@ PATCH accepts any nonempty subset of `projectId`, `startTime`, `endTime`,
 
 Use `description: ""` to clear a note. To stop a timer, set **both** `isActive:
 false` and `endTime` in one PATCH. To restart a completed entry, set `isActive:
-true` and `endTime: null`. The API permits overlapping events and multiple
-active timers, matching the underlying data model; an agent should check for
-active timers before starting another if it wants the UI's single-timer behavior.
+true` and `endTime: null`. Overlapping events are allowed, but **at most one
+non-deleted active timer** exists per user: creating an event with `isActive:
+true`, or a PATCH that sets `isActive: true`, fails with 409
+`active_timer_exists` when another active entry exists (restarting the same
+entry is fine). The check runs in the write transaction, so concurrent starts
+cannot both succeed. Entries in trash do not count. Timers started directly in
+the web/iOS apps are not checked by this API.
+
+### Optimistic concurrency (If-Match)
+
+`PATCH /projects/{id}`, `PATCH /events/{id}` and `DELETE /events/{id}` accept an
+optional `If-Match` header carrying the `updatedAt` value from your last read
+(for example `If-Match: 2026-11-01T15:00:00.123Z`; double quotes and other UTC
+offsets for the same instant are accepted). It is compared to the stored
+`updatedAt` at millisecond precision inside the write transaction. On mismatch
+the API returns 412 `precondition_failed` and writes nothing; read the record
+again and decide whether to reapply the change. The web and iOS apps bump
+`updatedAt` on every write, so their edits are detected too. Without the header
+(or with `If-Match: *`) writes remain last-writer-wins. A DELETE of an entry
+already in trash still returns 204 regardless of If-Match, so retries stay safe.
 
 ### Lists, pagination, and filters
 
@@ -152,18 +171,30 @@ Both list routes accept `limit` (default 100, maximum 200), `cursor` (a previous
 `from` is inclusive and `to` exclusive, and **both filter by startTime**, not
 interval overlap or endTime. They use the same timestamp format as writes.
 
-Lists are ordered by document ID ascending, **not chronological order**.
-Filtering happens after reading each bounded page of the user's documents.
-This avoids extra Firestore composite indexes and bounds each call to `limit`
-documents, but selective filters may require many calls. A page can contain an
-empty `data` array and a non-null `nextCursor`. **Continue until nextCursor is
-null**, keeping filters unchanged. There can also be a final empty page when
-the previous page was exactly full. Concurrent changes do not provide snapshot
-isolation across pages; client-selected IDs added before the cursor may require
-a fresh traversal to discover.
+Filters run as Firestore queries on the indexes in `firestore.indexes.json`,
+so a call reads only matching entries (up to `limit`):
+
+| Filters | Index | Order |
+| --- | --- | --- |
+| none, `from`/`to` | `userId, startTime DESC` | startTime descending, then ID descending |
+| `projectId` (± `from`/`to`) | `userId, projectId, startTime DESC` | startTime descending, then ID descending |
+| `isActive` alone | `userId, isActive` | document ID ascending |
+| `isActive` with `projectId`/`from`/`to` | as above without `isActive` | startTime descending; `isActive` applied per page |
+
+Trash is always filtered per page (hidden unless `includeDeleted=true`).
+Projects are listed by document ID ascending. Per-page filtering means a page
+can contain an empty `data` array and a non-null `nextCursor`. **Continue until
+nextCursor is null**, keeping filters unchanged. There can also be a final empty
+page when the previous page was exactly full.
+
+`nextCursor` is an opaque URL-safe string (base64url of the last document's sort
+key: startTime and ID, or ID). Pass it back unchanged; a cursor from a list with
+a different ordering, or a modified cursor, is rejected with 400. Concurrent
+changes do not provide snapshot isolation across pages: entries added or moved
+before the cursor position may require a fresh traversal to discover.
 
 ```json
-{"data":[],"nextCursor":"last-scanned-document-id"}
+{"data":[],"nextCursor":"WyJ0IiwxNzYyMDA4MDAwLDAsImV2ZW50LWlkIl0"}
 ```
 
 ### Errors and retries
@@ -182,6 +213,8 @@ Handler errors have this shape:
 | 405 | `method_not_allowed` | Use an allowed method (also in the Allow header) |
 | 409 | `already_exists` | Creation ID collision; GET original ID to check an ambiguous earlier request |
 | 409 | `resource_deleted` | Restore the resource/project in the app first |
+| 409 | `active_timer_exists` | Another timer is running; stop it before starting this one |
+| 412 | `precondition_failed` | `If-Match` no longer equals `updatedAt`; read again before retrying |
 | 413 | `payload_too_large` | Reduce the JSON body below 32 KiB |
 | 415 | `unsupported_media_type` | Send application/json |
 | 500 | `internal` | Retry with backoff and the same resource ID |
@@ -194,7 +227,8 @@ send it as POST `id`. Reuse that ID on retries. After a timeout/409, GET that ID
 and compare the returned fields with the intended operation. A 409 is not itself
 proof that the intended write succeeded. If you omit `id`, each successful POST
 creates a new random ID, so blindly retrying may create duplicates. PATCH and
-DELETE target stable IDs; PATCH is last-writer-wins and has no version/ETag check.
+DELETE target stable IDs; send `If-Match` to reject them when the record changed
+since you read it, otherwise PATCH is last-writer-wins.
 
 ## Examples
 
@@ -248,7 +282,8 @@ Stop timer PATCH body:
 > credential provider's Firebase ID token. Discover project IDs before creating
 > events. Treat events as time entries. Use explicit timezone offsets. Generate
 > a stable ID per create intent and reuse it on retries. Read before editing to
-> preserve intended time ranges. Follow pagination until nextCursor is null,
+> preserve intended time ranges, and send its updatedAt as If-Match on PATCH and
+> DELETE; on 412, read again. Follow pagination until nextCursor is null,
 > including empty pages. Change only requested fields with PATCH. Event DELETE
 > moves data to recoverable trash. Never infer a successful create solely from a
 > 409, and never generate a fresh retry ID after an ambiguous response without
